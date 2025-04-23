@@ -114,7 +114,7 @@ const SidebarProvider = React.forwardRef<
               ...style,
             } as React.CSSProperties
           }
-          className={cn("group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar", className)}
+          className={cn("flex flex-col gap-2 p-2", className)} {...props}("group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar", className)}
           ref={ref}
           {...props}
         >
@@ -139,7 +139,7 @@ const Sidebar = React.forwardRef<
   if (collapsible === "none") {
     return (
       <div
-        className={cn("flex h-full w-[--sidebar-width] flex-col bg-sidebar text-sidebar-foreground", className)}
+        className={cn("flex flex-col gap-2 p-2", className)} {...props}("flex h-full w-[--sidebar-width] flex-col bg-sidebar text-sidebar-foreground", className)}
         ref={ref}
         {...props}
       >
@@ -179,7 +179,7 @@ const Sidebar = React.forwardRef<
     >
       {/* This is what handles the sidebar gap on desktop */}
       <div
-        className={cn(
+        className={cn("flex flex-col gap-2 p-2", className)} {...props}(
           "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
@@ -189,7 +189,7 @@ const Sidebar = React.forwardRef<
         )}
       />
       <div
-        className={cn(
+        className={cn("flex flex-col gap-2 p-2", className)} {...props}(
           "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
@@ -224,7 +224,7 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         data-sidebar="trigger"
         variant="ghost"
         size="icon"
-        className={cn("h-7 w-7", className)}
+        className={cn("flex flex-col gap-2 p-2", className)} {...props}("h-7 w-7", className)}
         onClick={(event) => {
           onClick?.(event)
           toggleSidebar()
@@ -251,7 +251,7 @@ const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"bu
         tabIndex={-1}
         onClick={toggleSidebar}
         title="Toggle Sidebar"
-        className={cn(
+        className={cn("flex flex-col gap-2 p-2", className)} {...props}(
           "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-[side=left]:-right-4 group-data-[side=right]:left-0 sm:flex",
           "[[data-side=left]_&]:cursor-w-resize [[data-side=right]_&]:cursor-e-resize",
           "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
@@ -271,7 +271,7 @@ const SidebarInset = React.forwardRef<HTMLDivElement, React.ComponentProps<"main
   return (
     <main
       ref={ref}
-      className={cn(
+      className={cn("flex flex-col gap-2 p-2", className)} {...props}(
         "relative flex min-h-svh flex-1 flex-col bg-background",
         "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
         className,
@@ -288,7 +288,7 @@ const SidebarInput = React.forwardRef<React.ElementRef<typeof Input>, React.Comp
       <Input
         ref={ref}
         data-sidebar="input"
-        className={cn(
+        className={cn("flex flex-col gap-2 p-2", className)} {...props}(
           "h-8 w-full bg-background shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           className,
         )}
@@ -300,7 +300,7 @@ const SidebarInput = React.forwardRef<React.ElementRef<typeof Input>, React.Comp
 SidebarInput.displayName = "SidebarInput"
 
 const SidebarHeader = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(({ className, ...props }, ref) => {
-  return <div ref={ref} data-sidebar="header" className={cn("flex flex-col gap-2 p-2", className)} {...props} />
+  return <div ref={ref} data-sidebar="header" className={cn("flex flex-col gap-2 p-2", className)} {...props}("flex flex-col gap-2 p-2", className)} {...props} />
 })
 SidebarHeader.displayName = "SidebarHeader"
 
@@ -312,4 +312,4 @@ const SidebarFooter = React.forwardRef<
     <div
       ref={ref}
       data-sidebar="footer"
-      className={cn
+      className={cn("flex flex-col gap-2 p-2", className)} {...props}

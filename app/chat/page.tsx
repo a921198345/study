@@ -30,7 +30,7 @@ import {
   Minimize2,
 } from "lucide-react"
 import * as THREE from "three"
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
+// import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 
 type Message = {
   id: string
@@ -132,16 +132,16 @@ export default function ChatPage() {
 
     const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial)
     scene.add(particlesMesh)
-
-    // Controls
-    const controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping = true
-    controls.dampingFactor = 0.05
-    controls.enableZoom = false
-    controls.autoRotate = true
-    controls.autoRotateSpeed = 0.5
-
-    // Animation loop
+// 
+//     // Controls
+//     const controls = new OrbitControls(camera, renderer.domElement)
+//     controls.enableDamping = true
+//     controls.dampingFactor = 0.05
+//     controls.enableZoom = false
+//     controls.autoRotate = true
+//     controls.autoRotateSpeed = 0.5
+// 
+//     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate)
 
@@ -150,7 +150,7 @@ export default function ChatPage() {
 
       particlesMesh.rotation.y += 0.0005
 
-      controls.update()
+      
       renderer.render(scene, camera)
     }
 

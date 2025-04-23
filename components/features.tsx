@@ -64,7 +64,7 @@ const features = [
 ]
 
 export function Features() {
-  const [hoveredIndex, setHoveredIndex] = useState(null)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   return (
     <section className="py-24 px-4 bg-black">
