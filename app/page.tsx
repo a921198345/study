@@ -43,9 +43,9 @@ export default function Home() {
               ))}
             </div>
           </div>
-          <div className="container px-4 md:px-6 relative z-10">
-            <div className="flex flex-col items-center text-center space-y-8">
-              <div className="space-y-4 max-w-3xl">
+          <div className="container px-4 md:px-6 relative z-10 mx-auto flex justify-center">
+            <div className="flex flex-col items-center text-center space-y-8 max-w-4xl">
+              <div className="space-y-4 max-w-3xl mx-auto">
                 <h1 className="text-4xl font-bold tracking-tighter text-white sm:text-5xl xl:text-6xl/none">
                   你的专属学习伙伴，让备考不再孤单
                 </h1>
@@ -64,7 +64,7 @@ export default function Home() {
                   </Button>
                 </Link>
               </div>
-              <div className="relative h-[500px] w-full max-w-[400px] mt-12">
+              <div className="relative h-[500px] w-full max-w-[400px] mt-12 mx-auto">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[300px] rounded-full bg-pink-400/30 blur-3xl"></div>
                 <div className="relative z-10 bg-gradient-to-b from-white/10 to-white/5 backdrop-blur-sm rounded-3xl border border-white/20 p-6 h-full w-full overflow-hidden shadow-xl">
                   <div className="flex items-center justify-between mb-6">
@@ -133,12 +133,12 @@ export default function Home() {
           </div>
         </section>
         <section className="w-full py-12 md:py-24 bg-white">
-          <div className="container px-4 md:px-6">
+          <div className="container px-4 md:px-6 mx-auto">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
                 <div className="inline-block rounded-lg bg-purple-100 px-3 py-1 text-sm text-purple-600">核心功能</div>
                 <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">全方位的考试辅助体验</h2>
-                <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed mx-auto">
                   学习搭子不仅仅是一个学习工具，更是你备考路上的情感伙伴
                 </p>
               </div>
@@ -209,7 +209,7 @@ export default function Home() {
         </section>
       </main>
       <footer className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 py-6 text-white">
-        <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-white" />
             <p className="text-sm">© 2025 学习搭子. 保留所有权利.</p>
