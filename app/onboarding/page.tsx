@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
+import * as THREE from "three"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,8 +25,6 @@ import {
   VolumeX,
   Brain,
 } from "lucide-react"
-import * as THREE from "three"
-// import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 
 // Character data with greetings
 const characters = {
@@ -226,16 +225,8 @@ export default function OnboardingPage() {
 
     const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial)
     scene.add(particlesMesh)
-// 
-//     // Controls
-//     const controls = new OrbitControls(camera, renderer.domElement)
-//     controls.enableDamping = true
-//     controls.dampingFactor = 0.05
-//     controls.enableZoom = false
-//     controls.autoRotate = isRotating
-//     controls.autoRotateSpeed = 0.5
-// 
-//     // Animation loop
+
+    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate)
 
@@ -243,7 +234,6 @@ export default function OnboardingPage() {
 
       particlesMesh.rotation.y += 0.0005
 
-      
       renderer.render(scene, camera)
     }
 
@@ -251,21 +241,21 @@ export default function OnboardingPage() {
 
     // Handle resize
     const handleResize = () => {
-      if (!containerRef.current) return
+      if (!containerRef.current) return;
 
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
-      camera.updateProjectionMatrix()
-      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
-    }
+      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    };
 
-    window.addEventListener("resize", handleResize)
+    window.addEventListener("resize", handleResize);
 
     // Cleanup
     return () => {
-      window.removeEventListener("resize", handleResize)
-      renderer.dispose()
-    }
-  }, [step, isRotating])
+      window.removeEventListener("resize", handleResize);
+      renderer.dispose();
+    };
+  }, [step, isRotating]);
 
   // Trigger animations after component mounts
   useEffect(() => {
@@ -277,37 +267,37 @@ export default function OnboardingPage() {
   }, [])
 
   const handleCharacterSelect = (character: any) => {
-    setSelectedCharacter(character)
-    setAiCharacter(character.id)
-    setAiName(character.name)
-  }
+    setSelectedCharacter(character);
+    setAiCharacter(character.id);
+    setAiName(character.name);
+  };
 
   const toggleSpeech = () => {
-    setIsSpeaking(!isSpeaking)
+    setIsSpeaking(!isSpeaking);
     // Here would be the code to play/stop the character's voice greeting
-  }
+  };
 
   const toggleRotation = () => {
-    setIsRotating(!isRotating)
-  }
+    setIsRotating(!isRotating);
+  };
 
   const handleNext = () => {
-    if (step === 1 && !examType) return
-    if (step === 2 && !aiCharacter) return
-    if (step === 3 && (!aiName || !userName)) return
+    if (step === 1 && !examType) return;
+    if (step === 2 && !aiCharacter) return;
+    if (step === 3 && (!aiName || !userName)) return;
 
     if (step < 3) {
-      setStep(step + 1)
+      setStep(step + 1);
     } else {
-      router.push("/chat")
+      router.push("/chat");
     }
-  }
+  };
 
   const handleBack = () => {
     if (step > 1) {
-      setStep(step - 1)
+      setStep(step - 1);
     }
-  }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-black overflow-hidden">

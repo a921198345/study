@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,121 +18,10 @@ import {
   Settings,
   Trophy,
 } from "lucide-react"
-import * as THREE from "three"
-// import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [isLoaded, setIsLoaded] = useState(false)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // 3D scene setup
-  useEffect(() => {
-    if (!canvasRef.current || !containerRef.current) return
-
-    // Scene setup
-    const scene = new THREE.Scene()
-    
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      containerRef.current.clientWidth / containerRef.current.clientHeight,
-      0.1,
-      1000
-    )
-    camera.position.z = 5
-    
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvasRef.current,
-      antialias: true,
-      alpha: true
-    })
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setClearColor(0x000000, 0)
-    
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
-    scene.add(ambientLight)
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-    directionalLight.position.set(5, 5, 5)
-    scene.add(directionalLight)
-
-    // Create a floating 3D object (placeholder for visualization)
-    const geometry = new THREE.IcosahedronGeometry(1, 1)
-    const material = new THREE.MeshStandardMaterial({
-      color: 0xaa88ff,
-      metalness: 0.3,
-      roughness: 0.4,
-      wireframe: true
-    })
-    const icosahedron = new THREE.Mesh(geometry, material)
-    scene.add(icosahedron)
-    
-    // Add particles
-    const particlesGeometry = new THREE.BufferGeometry()
-    const particlesCount = 500
-    const posArray = new Float32Array(particlesCount * 3)
-    
-    for (let i = 0; i < particlesCount * 3; i++) {
-      posArray[i] = (Math.random() - 0.5) * 10
-    }
-    
-    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3))
-    
-    const particlesMaterial = new THREE.PointsMaterial({
-      size: 0.02,
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.8
-    })
-    
-    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial)
-    scene.add(particlesMesh)
-//     
-//     // Controls
-//     const controls = new OrbitControls(camera, renderer.domElement)
-//     controls.enableDamping = true
-//     controls.dampingFactor = 0.05
-//     controls.enableZoom = false
-//     controls.autoRotate = true
-//     controls.autoRotateSpeed = 0.5
-//     
-//     // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate)
-      
-      icosahedron.rotation.x += 0.003
-      icosahedron.rotation.y += 0.005
-      
-      particlesMesh.rotation.y += 0.0005
-      
-      
-      renderer.render(scene, camera)
-    }
-    
-    animate()
-    
-    // Handle resize
-    const handleResize = () => {
-      if (!containerRef.current) return
-      
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
-      camera.updateProjectionMatrix()
-      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
-    }
-    
-    window.addEventListener('resize', handleResize)
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      renderer.dispose()
-    }
-  }, [])
 
   // Trigger animations after component mounts
   useEffect(() => {

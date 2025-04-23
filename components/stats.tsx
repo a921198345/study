@@ -24,7 +24,13 @@ export function Stats() {
   )
 }
 
-function StatItem({ value, label, suffix }) {
+interface StatItemProps {
+  value: number;
+  label: string;
+  suffix?: string;
+}
+
+function StatItem({ value, label, suffix }: StatItemProps) {
   const [count, setCount] = useState(0)
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-100px" })

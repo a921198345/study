@@ -28,9 +28,10 @@ import {
   Volume2,
   Maximize2,
   Minimize2,
+  VolumeX,
 } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
 import * as THREE from "three"
-// import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 
 type Message = {
   id: string
@@ -43,8 +44,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content:
-        "你好！我是小雪，你的专属考试AI伙伴。今天我们来制定一下你的学习计划吧！首先，你现在处于备考的哪个阶段呢？",
+      content: "欢迎回来！你今天想要复习哪个科目？",
       sender: "ai",
       timestamp: new Date(),
     },
@@ -54,9 +54,9 @@ export default function ChatPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 3D scene setup
   useEffect(() => {
@@ -132,16 +132,8 @@ export default function ChatPage() {
 
     const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial)
     scene.add(particlesMesh)
-// 
-//     // Controls
-//     const controls = new OrbitControls(camera, renderer.domElement)
-//     controls.enableDamping = true
-//     controls.dampingFactor = 0.05
-//     controls.enableZoom = false
-//     controls.autoRotate = true
-//     controls.autoRotateSpeed = 0.5
-// 
-//     // Animation loop
+
+    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate)
 
@@ -149,7 +141,6 @@ export default function ChatPage() {
       torus.rotation.y += 0.005
 
       particlesMesh.rotation.y += 0.0005
-
       
       renderer.render(scene, camera)
     }
@@ -158,11 +149,11 @@ export default function ChatPage() {
 
     // Handle resize
     const handleResize = () => {
-      if (!containerRef.current) return
+      if (!containerRef.current) return;
 
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
-      camera.updateProjectionMatrix()
-      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
+      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     }
 
     window.addEventListener("resize", handleResize)
@@ -201,7 +192,7 @@ export default function ChatPage() {
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         content:
-          "了解了！根据你的情况，我建议我们先从基础知识开始复习，然后逐步深入到重点和难点。我已经为你生成了一个为期3个月的学习计划，你可以在右侧的&quot;学习计划&quot;标签中查看详细内容。每天我会根据计划提醒你需要完成的任务，并且随时为你解答问题。你觉得这个计划怎么样？",
+          "了解了！根据你的情况，我建议我们先从基础知识开始复习，然后逐步深入到重点和难点。我已经为你生成了一个为期3个月的学习计划，你可以在右侧的\"学习计划\"标签中查看详细内容。每天我会根据计划提醒你需要完成的任务，并且随时为你解答问题。你觉得这个计划怎么样？",
         sender: "ai",
         timestamp: new Date(),
       }
