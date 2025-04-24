@@ -170,7 +170,7 @@ export function generateAIResponse(
     case ContentType.EMOTIONAL:
       return generateEmotionalResponseWithPersona(message, personaName);
     case ContentType.CASUAL:
-      return generateCasualResponse(message, personaName);
+      return generateCasualResponseWithPersona(message, personaName);
     default:
       // 默认回复
       return `你好！我是${personaName}，一个AI学习助手。我可以回答法律知识问题，提供学习建议，或者陪你聊天。请问有什么我能帮到你的吗？`;
@@ -319,12 +319,12 @@ function generateEmotionalResponseWithPersona(message: string, personaName: stri
 }
 
 /**
- * 生成日常聊天响应
+ * 生成日常聊天响应 - 带人格名称版本
  * @param message 用户消息
  * @param personaName AI人格名称
  * @returns 日常聊天响应
  */
-function generateCasualResponse(message: string, personaName: string): string {
+function generateCasualResponseWithPersona(message: string, personaName: string): string {
   const lowerMessage = message.toLowerCase();
   let response = "";
   
