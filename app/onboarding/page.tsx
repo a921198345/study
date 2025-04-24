@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import * as THREE from "three"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -127,8 +126,10 @@ export default function OnboardingPage() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isRotating, setIsRotating] = useState(false)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Add ref definitions for 3D rendering
   const containerRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   // Customization state
   const [hairStyle, setHairStyle] = useState("长直发")
@@ -148,114 +149,6 @@ export default function OnboardingPage() {
       setAiName(characters.male[1].name)
     }
   }, [selectedGender])
-
-  // 3D scene setup
-  useEffect(() => {
-    if (!canvasRef.current || !containerRef.current || step !== 2) return
-
-    // Scene setup
-    const scene = new THREE.Scene()
-
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      containerRef.current.clientWidth / containerRef.current.clientHeight,
-      0.1,
-      1000,
-    )
-    camera.position.z = 5
-
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvasRef.current,
-      antialias: true,
-      alpha: true,
-    })
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setClearColor(0x000000, 0)
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
-    scene.add(ambientLight)
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-    directionalLight.position.set(5, 5, 5)
-    scene.add(directionalLight)
-
-    const pointLight1 = new THREE.PointLight(0xff9dff, 2, 10)
-    pointLight1.position.set(2, 1, 2)
-    scene.add(pointLight1)
-
-    const pointLight2 = new THREE.PointLight(0x9dacff, 2, 10)
-    pointLight2.position.set(-2, 1, 2)
-    scene.add(pointLight2)
-
-    // Create a floating 3D object (placeholder for character model)
-    const geometry = new THREE.SphereGeometry(1.5, 32, 32)
-    const material = new THREE.MeshStandardMaterial({
-      color: 0xaa88ff,
-      metalness: 0.2,
-      roughness: 0.5,
-      emissive: 0x330066,
-      emissiveIntensity: 0.2,
-      transparent: true,
-      opacity: 0.8,
-    })
-    const sphere = new THREE.Mesh(geometry, material)
-    scene.add(sphere)
-
-    // Add particles
-    const particlesGeometry = new THREE.BufferGeometry()
-    const particlesCount = 1000
-    const posArray = new Float32Array(particlesCount * 3)
-
-    for (let i = 0; i < particlesCount * 3; i++) {
-      posArray[i] = (Math.random() - 0.5) * 15
-    }
-
-    particlesGeometry.setAttribute("position", new THREE.BufferAttribute(posArray, 3))
-
-    const particlesMaterial = new THREE.PointsMaterial({
-      size: 0.02,
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.8,
-    })
-
-    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial)
-    scene.add(particlesMesh)
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate)
-
-      sphere.rotation.y += 0.005
-
-      particlesMesh.rotation.y += 0.0005
-
-      renderer.render(scene, camera)
-    }
-
-    animate()
-
-    // Handle resize
-    const handleResize = () => {
-      if (!containerRef.current) return;
-
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      renderer.dispose();
-    };
-  }, [step, isRotating]);
 
   // Trigger animations after component mounts
   useEffect(() => {

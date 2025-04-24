@@ -17,4 +17,4 @@
 - 后端：Next.js API Routes
 - AI 调用：DeepSeek REST API  
 - 部署：Vercel 一键部署  
-- 知识库存储：JSON/Markdown + Serverless 读取  
+- 知识库存储：supabase
