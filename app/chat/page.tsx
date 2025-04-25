@@ -55,6 +55,7 @@ export default function ChatPage() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export default function ChatPage() {
   }, [])
 
   const handleSendMessage = () => {
-    if (!input.trim()) return
+    if (!input.trim() || isStreaming) return
 
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -83,82 +84,8 @@ export default function ChatPage() {
     setMessages([...messages, newMessage])
     setInput("")
 
-    // 调用API获取回答
-    const fetchAnswer = async () => {
-      try {
-        // 显示加载状态
-        const loadingId = 'loading-' + Date.now().toString();
-        const loadingMessage: Message = {
-          id: loadingId,
-          content: '思考中...',
-          sender: 'ai',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, loadingMessage]);
-        
-        // 设置超时控制
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
-        
-        // 调用知识库API
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ query: input }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        // 移除加载消息
-        setMessages(prev => prev.filter(msg => msg.id !== loadingId));
-        
-        if (!response.ok) {
-          throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        
-        // 添加AI回答
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          content: data.answer || '抱歉，我无法回答这个问题。',
-          sender: 'ai',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, aiResponse]);
-      } catch (error) {
-        console.error('获取回答时出错:', error);
-        
-        let errorMessage = '抱歉，我遇到了问题：';
-        
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          errorMessage += '请求超时，服务器响应时间过长。';
-        } else if (error instanceof TypeError && error.message.includes('fetch')) {
-          errorMessage += 'Failed to fetch。网络连接问题，请检查网络连接或联系管理员。';
-        } else {
-          errorMessage += error instanceof Error ? error.message : '未知错误';
-        }
-        
-        // 添加错误消息
-        const errorResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          content: `${errorMessage}。请稍后再试。`,
-          sender: 'ai',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, errorResponse]);
-      }
-    };
-    
     // 执行API调用
-    fetchAnswer();
+    fetchAnswer()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -180,6 +107,136 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const fetchAnswer = async () => {
+    try {
+      // 显示加载状态
+      const loadingId = 'loading-' + Date.now().toString();
+      const aiResponseId = (Date.now() + 1).toString();
+      
+      // 创建初始的加载消息
+      const loadingMessage: Message = {
+        id: loadingId,
+        content: '思考中...',
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      
+      // 创建AI响应消息框（初始为空）
+      const aiResponse: Message = {
+        id: aiResponseId,
+        content: '',
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      
+      // 添加两个消息：一个加载中，一个将用于流式更新
+      setMessages(prev => [...prev, loadingMessage, aiResponse]);
+      setIsStreaming(true);
+      
+      try {
+        // 创建API请求
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: input }),
+        });
+        
+        // 移除加载消息，保留ai响应消息
+        setMessages(prev => prev.filter(msg => msg.id !== loadingId));
+        
+        if (!response.ok) {
+          throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+        }
+        
+        if (!response.body) {
+          throw new Error('响应没有内容流');
+        }
+        
+        // 处理流式响应
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulatedContent = '';
+        
+        // 读取流
+        while (true) {
+          const { value, done } = await reader.read();
+          
+          if (done) {
+            console.log('流读取完成');
+            break;
+          }
+          
+          // 解码当前片段
+          const chunk = decoder.decode(value, { stream: true });
+          // 处理SSE格式
+          const lines = chunk.split('\n\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const eventData = JSON.parse(line.substring(6));
+                
+                if (eventData.type === 'chunk' && eventData.content) {
+                  // 更新累积内容
+                  accumulatedContent += eventData.content;
+                  
+                  // 更新UI中的消息
+                  setMessages(prev => 
+                    prev.map(msg => 
+                      msg.id === aiResponseId 
+                        ? { ...msg, content: accumulatedContent } 
+                        : msg
+                    )
+                  );
+                } else if (eventData.type === 'error') {
+                  // 处理错误
+                  setMessages(prev => 
+                    prev.map(msg => 
+                      msg.id === aiResponseId 
+                        ? { ...msg, content: eventData.content } 
+                        : msg
+                    )
+                  );
+                }
+              } catch (e) {
+                console.error('解析事件数据出错:', e);
+              }
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error('获取回答时出错:', error);
+        
+        let errorMessage = '抱歉，我遇到了问题：';
+        
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          errorMessage += '请求超时，服务器响应时间过长。';
+        } else if (error instanceof TypeError && error.message.includes('fetch')) {
+          errorMessage += 'Failed to fetch。网络连接问题，请检查网络连接或联系管理员。';
+        } else {
+          errorMessage += error instanceof Error ? error.message : '未知错误';
+        }
+        
+        // 更新AI消息为错误消息
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === aiResponseId 
+              ? { ...msg, content: `${errorMessage}。请稍后再试。` } 
+              : msg
+          ).filter(msg => msg.id !== loadingId) // 确保移除加载消息
+        );
+      } finally {
+        setIsStreaming(false);
+      }
+    } catch (outerError) {
+      console.error('外部错误:', outerError);
+      setIsStreaming(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-black overflow-hidden">
@@ -373,8 +430,9 @@ export default function ChatPage() {
                 </div>
                 <Button
                   size="icon"
-                  className="h-10 w-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90"
+                  className={`h-10 w-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:opacity-90 ${isStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
                   onClick={handleSendMessage}
+                  disabled={isStreaming}
                 >
                   <Send className="h-5 w-5 text-white" />
                   <span className="sr-only">发送</span>

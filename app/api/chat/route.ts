@@ -271,7 +271,7 @@ export async function POST(request: Request) {
       // 继续处理，使用默认值
     }
     
-    // 6. 创建系统提示词并使用带超时的API调用
+    // 6. 创建系统提示词
     let systemPrompt: string;
     
     if (isLegal) {
@@ -314,52 +314,97 @@ ${knowledgeContext || '使用你的专业知识准确回答法律相关问题。
 7. 使用Markdown格式，为重点内容添加**加粗**效果
 8. 每个段落之间添加空行，让回复结构清晰`;
     }
-
+    
     // 7. 结合角色设定和系统提示词
     const fullPrompt = isLegal ? 
       `${characterPrompts?.xiaoxue || ''}\n\n${systemPrompt}` : 
       systemPrompt;
     
-    // 8. 调用DeepSeek API，设置20秒超时
-    try {
-      const response = await callDeepSeekWithTimeout([
-        {
-          role: "system",
-          content: fullPrompt
-        },
-        {
-          role: "user",
-          content: correctedQuery || query
-        }
-      ], 20000);
-      
-      const answer = response.choices[0]?.message?.content || '抱歉，我无法回答这个问题。';
-      
-      // 添加到缓存
-      if (answer && answer.length > 0) {
-        questionCache.set(cacheKey, {
-          answer,
-          timestamp: Date.now()
+    // 8. 开始流式传输
+    // 创建一个可读流以支持流式响应
+    const encoder = new TextEncoder();
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
+    
+    // 立即返回流式响应
+    const response = new Response(stream.readable, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+      }
+    });
+    
+    // 异步处理流式生成
+    (async () => {
+      try {
+        // 开始处理动画
+        await writer.write(encoder.encode('data: {"type":"start"}\n\n'));
+        
+        // 使用DeepSeek API的流式模式
+        const completion = await deepseek.chat.completions.create({
+          model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+          messages: [
+            {
+              role: "system",
+              content: fullPrompt
+            },
+            {
+              role: "user",
+              content: correctedQuery || query
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1500,
+          stream: true, // 启用流式传输
         });
-      }
-      
-      return NextResponse.json({ answer }, { headers: corsHeaders });
-    } catch (error) {
-      console.error('DeepSeek API调用失败:', error);
-      // 如果是API超时错误，返回更友好的错误信息
-      if (error instanceof Error && error.message.includes('超时')) {
-        return NextResponse.json(
-          { answer: '抱歉，我处理这个问题花费的时间太长了。请尝试提问更简单或更明确的问题。' }, 
-          { headers: corsHeaders }
+        
+        let fullAnswer = '';
+        // 处理每个流式片段
+        for await (const chunk of completion) {
+          // 获取当前片段文本
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullAnswer += content;
+            // 将内容包装成JSON并发送
+            await writer.write(
+              encoder.encode(`data: {"type":"chunk", "content": ${JSON.stringify(content)}}\n\n`)
+            );
+          }
+        }
+        
+        // 完成处理
+        await writer.write(encoder.encode('data: {"type":"end"}\n\n'));
+        
+        // 缓存完整回答
+        if (fullAnswer) {
+          questionCache.set(cacheKey, {
+            answer: fullAnswer,
+            timestamp: Date.now()
+          });
+        }
+        
+      } catch (error) {
+        console.error('流式处理出错:', error);
+        // 发送错误消息
+        let errorMessage = '抱歉，处理你的问题时出现错误。请稍后再试。';
+        if (error instanceof Error) {
+          if (error.message.includes('timeout') || error.message.includes('超时')) {
+            errorMessage = '抱歉，处理这个问题需要的时间太长了。请尝试简化你的问题。';
+          }
+        }
+        
+        await writer.write(
+          encoder.encode(`data: {"type":"error", "content": ${JSON.stringify(errorMessage)}}\n\n`)
         );
+      } finally {
+        await writer.close();
       }
-      
-      // 其他错误情况
-      return NextResponse.json(
-        { answer: '抱歉，我现在无法回答这个问题。请稍后再试。' }, 
-        { headers: corsHeaders }
-      );
-    }
+    })().catch(console.error);
+    
+    return response;
+    
   } catch (error) {
     console.error('API处理出错:', error);
     return NextResponse.json(
