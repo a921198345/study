@@ -148,6 +148,36 @@ function getSafetyResponse(): string {
   return "同学，作为您的学习搭子，我希望我们的对话能够保持积极健康的氛围。如果您有关于学习或者生活上的困惑，我很乐意陪您聊一聊，为您提供支持和鼓励。请避免发送不适当的内容，我们可以探讨更有意义的话题。";
 }
 
+// 添加本地回退处理功能
+function getLocalFallbackResponse(query: string): string {
+  // 简单的回退响应，避免API认证问题导致整个应用无法使用
+  if (query.includes('法律') || query.includes('合同') || query.includes('刑法') || query.includes('民法')) {
+    return `同学你好，你提问的"${query}"涉及法律问题。
+
+作为你的学习搭子，我建议查阅相关法条和权威教材来获取准确信息。法考备考需要系统学习和理解法律概念，而不是简单记忆。
+
+**坚持每天学习**，多做习题，相信你一定能考过！我会一直支持你的。`;
+  }
+  
+  if (query.includes('学习') || query.includes('复习') || query.includes('考试')) {
+    return `同学你好！关于"${query}"，我有几点建议：
+
+**高效学习方法**：
+1. 制定合理的学习计划，分解大目标为小任务
+2. 使用番茄工作法，专注学习25分钟后短暂休息
+3. 多种学习方式结合：阅读、视听、实践、教授他人
+
+坚持就是胜利，我相信你可以做到！有任何问题都可以问我哦~`;
+  }
+  
+  // 默认回复
+  return `你好同学！我是你的学习搭子小雪。
+
+很高兴能和你聊天，但我现在遇到了一些技术问题，无法使用所有功能。不过别担心，我还是很乐意和你交流，给你提供支持和鼓励。
+
+有什么我能帮到你的吗？我们可以聊聊学习方法、生活困惑，或者只是随便聊聊天放松一下~`;
+}
+
 // 模型请求超时控制
 async function callDeepSeekWithTimeout(messages: any[], timeout = 30000) {
   return new Promise(async (resolve, reject) => {
@@ -350,49 +380,82 @@ ${knowledgeContext || '使用你的专业知识准确回答法律相关问题。
         // 开始处理动画
         await writer.write(encoder.encode('data: {"type":"start"}\n\n'));
         
-        // 使用DeepSeek API的流式模式
-        const completion = await deepseek.chat.completions.create({
-          model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
-          messages: [
-            {
-              role: "system",
-              content: fullPrompt
-            },
-            {
-              role: "user",
-              content: correctedQuery || query
+        try {
+          // 尝试使用DeepSeek API
+          const completion = await deepseek.chat.completions.create({
+            model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+            messages: [
+              {
+                role: "system",
+                content: fullPrompt
+              },
+              {
+                role: "user",
+                content: correctedQuery || query
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 1500,
+            stream: true, // 启用流式传输
+          });
+          
+          let fullAnswer = '';
+          // 处理每个流式片段
+          for await (const chunk of completion) {
+            // 获取当前片段文本
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              fullAnswer += content;
+              // 将内容包装成JSON并发送
+              await writer.write(
+                encoder.encode(`data: {"type":"chunk", "content": ${JSON.stringify(content)}}\n\n`)
+              );
             }
-          ],
-          temperature: 0.7,
-          max_tokens: 1500,
-          stream: true, // 启用流式传输
-        });
-        
-        let fullAnswer = '';
-        // 处理每个流式片段
-        for await (const chunk of completion) {
-          // 获取当前片段文本
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            fullAnswer += content;
-            // 将内容包装成JSON并发送
-            await writer.write(
-              encoder.encode(`data: {"type":"chunk", "content": ${JSON.stringify(content)}}\n\n`)
-            );
           }
-        }
-        
-        // 完成处理
-        await writer.write(encoder.encode('data: {"type":"end"}\n\n'));
-        
-        // 缓存完整回答
-        if (fullAnswer) {
+          
+          // 完成处理
+          await writer.write(encoder.encode('data: {"type":"end"}\n\n'));
+          
+          // 缓存完整回答
+          if (fullAnswer) {
+            questionCache.set(cacheKey, {
+              answer: fullAnswer,
+              timestamp: Date.now()
+            });
+          }
+        } catch (apiError) {
+          // API调用失败，使用本地回退处理
+          console.error('DeepSeek API调用失败，使用本地回退处理:', apiError);
+          
+          // 获取本地回退响应
+          const fallbackAnswer = getLocalFallbackResponse(query);
+          
+          // 模拟流式传输效果
+          const words = fallbackAnswer.split(/\s+/);
+          let simulatedText = '';
+          
+          // 分批发送文本以模拟流式效果
+          for (let i = 0; i < words.length; i += 3) {
+            const chunk = words.slice(i, i + 3).join(' ') + ' ';
+            simulatedText += chunk;
+            
+            await writer.write(
+              encoder.encode(`data: {"type":"chunk", "content": ${JSON.stringify(chunk)}}\n\n`)
+            );
+            
+            // 添加一点延迟使其更像真实流式传输
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          // 完成处理
+          await writer.write(encoder.encode('data: {"type":"end"}\n\n'));
+          
+          // 缓存回退回答
           questionCache.set(cacheKey, {
-            answer: fullAnswer,
+            answer: fallbackAnswer,
             timestamp: Date.now()
           });
         }
-        
       } catch (error) {
         console.error('流式处理出错:', error);
         // 发送错误消息
