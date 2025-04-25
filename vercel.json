@@ -1,1 +1,16 @@
-{"version":2,"framework":"nextjs","buildCommand":"npm run build","installCommand":"npm install","devCommand":"npm run dev","outputDirectory":".next"}
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "env": {
+    "DEEPSEEK_API_KEY": "sk-83d00854f34c48d9845e1c25c9544b52",
+    "DEEPSEEK_MODEL": "deepseek-chat",
+    "DEEPSEEK_API_URL": "https://api.deepseek.com/v1",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://tehliapojmivrajgmjws.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlaGxpYXBvam1pdnJhamdtandzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU0NjUyNjcsImV4cCI6MjA2MTA0MTI2N30.pRvqwaz9yzOPMCazl19Kb5zxyrYTMqkQyMCcgOBoFCA",
+    "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlaGxpYXBvam1pdnJhamdtandzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTQ2NTI2NywiZXhwIjoyMDYxMDQxMjY3fQ.r5X3OegOnNfJx7M2HpyyWcCI2Pnp6VPVefndg7pxTQk"
+  }
+}
