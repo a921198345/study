@@ -14,9 +14,17 @@ type CacheEntry = {
 };
 
 // DeepSeek API客户端（使用OpenAI兼容格式）
+const deepseekApiKey = process.env.DEEPSEEK_API_KEY || '';
+const deepseekApiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1';
+
+console.log('API配置信息 (安全处理后):');
+console.log('DeepSeek API Key:', deepseekApiKey ? `${deepseekApiKey.substring(0, 5)}...${deepseekApiKey.substring(deepseekApiKey.length - 4)}` : '未设置');
+console.log('DeepSeek API URL:', deepseekApiUrl);
+console.log('DeepSeek Model:', process.env.DEEPSEEK_MODEL || 'deepseek-chat');
+
 const deepseek = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY || '',
-  baseURL: process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1',
+  apiKey: deepseekApiKey,
+  baseURL: deepseekApiUrl,
 });
 
 // 配置CORS响应头
