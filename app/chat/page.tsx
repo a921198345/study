@@ -110,28 +110,19 @@ export default function ChatPage() {
 
   const fetchAnswer = async () => {
     try {
-      // 显示加载状态
-      const loadingId = 'loading-' + Date.now().toString();
-      const aiResponseId = (Date.now() + 1).toString();
+      // 创建单个AI响应消息（初始显示思考中）
+      const aiResponseId = Date.now().toString();
       
-      // 创建初始的加载消息
-      const loadingMessage: Message = {
-        id: loadingId,
+      // 创建AI响应消息，初始显示"思考中..."
+      const aiResponse: Message = {
+        id: aiResponseId,
         content: '思考中...',
         sender: 'ai',
         timestamp: new Date(),
       };
       
-      // 创建AI响应消息框（初始为空）
-      const aiResponse: Message = {
-        id: aiResponseId,
-        content: '',
-        sender: 'ai',
-        timestamp: new Date(),
-      };
-      
-      // 添加两个消息：一个加载中，一个将用于流式更新
-      setMessages(prev => [...prev, loadingMessage, aiResponse]);
+      // 添加单个消息
+      setMessages(prev => [...prev, aiResponse]);
       setIsStreaming(true);
       
       try {
@@ -143,9 +134,6 @@ export default function ChatPage() {
           },
           body: JSON.stringify({ query: input }),
         });
-        
-        // 移除加载消息，保留ai响应消息
-        setMessages(prev => prev.filter(msg => msg.id !== loadingId));
         
         if (!response.ok) {
           throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
@@ -200,6 +188,15 @@ export default function ChatPage() {
                         : msg
                     )
                   );
+                } else if (eventData.type === 'start') {
+                  // 收到开始事件时，可以选择性地清空"思考中..."文本
+                  setMessages(prev => 
+                    prev.map(msg => 
+                      msg.id === aiResponseId 
+                        ? { ...msg, content: '' } 
+                        : msg
+                    )
+                  );
                 }
               } catch (e) {
                 console.error('解析事件数据出错:', e);
@@ -227,7 +224,7 @@ export default function ChatPage() {
             msg.id === aiResponseId 
               ? { ...msg, content: `${errorMessage}。请稍后再试。` } 
               : msg
-          ).filter(msg => msg.id !== loadingId) // 确保移除加载消息
+          )
         );
       } finally {
         setIsStreaming(false);
