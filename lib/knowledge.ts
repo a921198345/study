@@ -299,8 +299,18 @@ export function formatResponse(text: string): string {
 }
 
 // 格式化响应文本 - 用于与searchKnowledge函数配合使用
-export function formatResponseText(text: string): string {
-  if (!text || text.trim() === '') {
+export function formatResponseText(text: string | KnowledgeItem | null): string {
+  if (!text) {
+    return '很抱歉，我没能找到相关信息。请尝试换一种提问方式，或者提供更多细节。';
+  }
+  
+  // 如果是KnowledgeItem类型，提取内容
+  if (typeof text !== 'string') {
+    return formatResponse(text.content);
+  }
+  
+  // 处理空字符串
+  if (text.trim() === '') {
     return '很抱歉，我没能找到相关信息。请尝试换一种提问方式，或者提供更多细节。';
   }
   

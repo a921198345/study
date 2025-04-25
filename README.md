@@ -339,3 +339,39 @@
 6. 部署到生产环境：`npm run start`
 
 所有代码修复和功能增强均已实施，应用现在可以正常工作。 
+
+### 2025-01-10（当前日期）
+- **会话主要目的**：将应用部署到Vercel并解决构建错误
+- **完成的主要任务**：
+  - 安装并配置了Vercel CLI
+  - 修复了`formatResponseText`函数的类型问题
+  - 解决了构建过程中的类型错误
+  - 创建了测试API路由验证部署成功
+  - 成功将应用部署到Vercel生产环境
+- **关键决策和解决方案**：
+  - 扩展了`formatResponseText`函数的参数类型，使其可接受`string | KnowledgeItem | null`
+  - 添加了针对非字符串类型输入的处理逻辑
+  - 使用`vercel --prod`命令部署到生产环境
+  - 添加了简单的健康检查API端点
+- **技术栈**：Vercel, Next.js, TypeScript
+- **修改文件**：
+  - `lib/knowledge.ts`：修复类型问题
+  - `app/api/hello/route.ts`：添加测试API路由
+  - `README.md`：更新部署信息
+
+## Vercel部署
+项目已成功部署到Vercel平台，可通过以下URL访问：
+- 生产环境：https://study-kgy8ifkej-cuiges-projects.vercel.app
+
+### API端点
+- 健康检查：https://study-kgy8ifkej-cuiges-projects.vercel.app/api/hello
+- 聊天API：https://study-kgy8ifkej-cuiges-projects.vercel.app/api/chat
+
+### 部署到自己的Vercel账户
+如果你想部署到自己的Vercel账户，请按以下步骤操作：
+1. 安装Vercel CLI：`npm install -g vercel`
+2. 登录Vercel：`vercel login`
+3. 部署项目：`vercel`
+4. 部署到生产环境：`vercel --prod`
+
+Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都已在`vercel.json`中设置，无需额外配置。 

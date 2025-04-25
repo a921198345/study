@@ -96,6 +96,10 @@ export default function ChatPage() {
         };
         setMessages(prev => [...prev, loadingMessage]);
         
+        // 设置超时控制
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+        
         // 调用知识库API
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -103,7 +107,10 @@ export default function ChatPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ query: input }),
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         // 移除加载消息
         setMessages(prev => prev.filter(msg => msg.id !== loadingId));
@@ -129,14 +136,24 @@ export default function ChatPage() {
       } catch (error) {
         console.error('获取回答时出错:', error);
         
+        let errorMessage = '抱歉，我遇到了问题：';
+        
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          errorMessage += '请求超时，服务器响应时间过长。';
+        } else if (error instanceof TypeError && error.message.includes('fetch')) {
+          errorMessage += 'Failed to fetch。网络连接问题，请检查网络连接或联系管理员。';
+        } else {
+          errorMessage += error instanceof Error ? error.message : '未知错误';
+        }
+        
         // 添加错误消息
-        const errorMessage: Message = {
+        const errorResponse: Message = {
           id: (Date.now() + 1).toString(),
-          content: `抱歉，我遇到了问题：${error instanceof Error ? error.message : '未知错误'}。请稍后再试。`,
+          content: `${errorMessage}。请稍后再试。`,
           sender: 'ai',
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, errorMessage]);
+        setMessages(prev => [...prev, errorResponse]);
       }
     };
     
