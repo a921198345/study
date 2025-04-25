@@ -72,21 +72,24 @@ export default function ChatPage() {
   }, [])
 
   const handleSendMessage = () => {
-    if (!input.trim() || isStreaming) return
+    if (!input.trim() || isStreaming) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
+    // 创建用户消息对象
+    const userMessageId = Date.now().toString();
+    const userMessage: Message = {
+      id: userMessageId,
       content: input,
       sender: "user",
       timestamp: new Date(),
-    }
+    };
 
-    setMessages([...messages, newMessage])
-    setInput("")
+    // 只添加用户消息，清空输入框
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
 
-    // 执行API调用
-    fetchAnswer()
-  }
+    // 执行API调用获取AI回复
+    fetchAnswer(input); // 传递用户输入给fetchAnswer函数
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -108,10 +111,10 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const fetchAnswer = async () => {
+  const fetchAnswer = async (userInput: string) => {
     try {
       // 创建单个AI响应消息（初始显示思考中）
-      const aiResponseId = Date.now().toString();
+      const aiResponseId = (Date.now() + 1).toString();
       
       // 创建AI响应消息，初始显示"思考中..."
       const aiResponse: Message = {
@@ -121,18 +124,18 @@ export default function ChatPage() {
         timestamp: new Date(),
       };
       
-      // 添加单个消息
+      // 添加AI响应消息
       setMessages(prev => [...prev, aiResponse]);
       setIsStreaming(true);
       
       try {
-        // 创建API请求
+        // 创建API请求，使用传入的userInput而不是input状态变量
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ query: input }),
+          body: JSON.stringify({ query: userInput }),
         });
         
         if (!response.ok) {
@@ -317,15 +320,14 @@ export default function ChatPage() {
                           <ReactMarkdown 
                             components={{
                               // 确保段落正确渲染
-                              p: ({node, ...props}) => <p className="mb-2" {...props} />,
+                              p: ({ children }) => <p>{children}</p>,
                               // 确保加粗文本正确渲染
-                              strong: ({node, ...props}) => <strong className="font-bold" {...props} />,
+                              strong: ({ children }) => <strong>{children}</strong>,
                               // 确保列表正确渲染 
-                              ul: ({node, ...props}) => <ul className="list-disc pl-4 mb-2" {...props} />,
-                              ol: ({node, ...props}) => <ol className="list-decimal pl-4 mb-2" {...props} />,
-                              li: ({node, ...props}) => <li className="ml-2 mb-1" {...props} />
+                              ul: ({ children }) => <ul className="list-disc pl-5 space-y-1">{children}</ul>,
+                              ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1">{children}</ol>,
+                              li: ({ children }) => <li>{children}</li>
                             }}
-                            remarkPlugins={[]}
                           >
                             {message.content}
                           </ReactMarkdown>

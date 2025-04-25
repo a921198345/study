@@ -1,39 +1,33 @@
 import { ZhipuAI } from '@/lib/zhipu-ai';
 import { createClient } from '@supabase/supabase-js';
 
-// 声明supabase变量
-let supabase: any = null;
+// 改进Supabase初始化代码部分
+// 获取Supabase配置信息
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-// 初始化Supabase客户端
-// 检查环境变量并提供更好的错误处理
-let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-let supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-let supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+// 检查配置完整性，提供更明确的警告信息
+let supabaseClient: any = null;
 
-// 检查并记录Supabase配置状态
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase配置: { url: ' + (supabaseUrl ? '已设置' : 'undefined') + 
-               ', hasKey: ' + (supabaseAnonKey ? true : false) + ' }');
-  
-  if (!supabaseUrl) {
-    console.warn('Supabase URL未设置，将使用本地知识库');
-    // 提供默认值以避免undefined错误
-    supabaseUrl = 'https://tehliapojmivrajgmjws.supabase.co';
+try {
+  // 尝试初始化Supabase客户端
+  if (supabaseUrl && supabaseAnonKey) {
+    const { createClient } = require('@supabase/supabase-js');
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey || supabaseServiceKey);
+    console.log('Supabase客户端初始化成功');
+  } else {
+    const missingVars = [];
+    if (!supabaseUrl) missingVars.push('NEXT_PUBLIC_SUPABASE_URL');
+    if (!supabaseAnonKey && !supabaseServiceKey) missingVars.push('NEXT_PUBLIC_SUPABASE_ANON_KEY/SUPABASE_SERVICE_KEY');
+    
+    console.warn(`警告: Supabase配置不完整，缺少以下环境变量: ${missingVars.join(', ')}。将使用本地知识库。`);
+    console.warn('如需连接Supabase，请在Vercel项目设置中添加这些环境变量');
   }
-  
-  if (!supabaseAnonKey) {
-    console.warn('Supabase Anon Key未设置，将使用本地知识库');
-    // 提供一个虚拟密钥以避免undefined错误
-    supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; 
-  }
+} catch (error) {
+  console.error('Supabase客户端初始化失败:', error);
+  console.warn('将使用本地知识库');
 }
-
-// 创建Supabase客户端
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// 初始化完成后记录状态
-console.log('Supabase客户端: { url: ' + (supabaseUrl ? supabaseUrl.substring(0, 15) + '...' : 'undefined') + 
-             ', hasKey: ' + (supabaseAnonKey ? true : false) + ' }');
 
 // 缓存常见问题的结果
 const knowledgeCache = new Map<string, string>();
