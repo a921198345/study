@@ -1,0 +1,27 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
+  // 解决环境变量问题
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+    DEEPSEEK_API_URL: process.env.DEEPSEEK_API_URL,
+    DEEPSEEK_MODEL: process.env.DEEPSEEK_MODEL,
+    NEXT_PUBLIC_FEATURE_AI_CHAT: process.env.NEXT_PUBLIC_FEATURE_AI_CHAT,
+    NEXT_PUBLIC_FEATURE_USER_AUTH: process.env.NEXT_PUBLIC_FEATURE_USER_AUTH,
+  },
+  // 提高构建性能
+  poweredByHeader: false,
+  // 禁用图像优化以避免潜在问题
+  images: {
+    unoptimized: true,
+  },
+  // 增加对Vercel部署的兼容性
+  webpack: (config) => {
+    return config;
+  },
+};
+
+module.exports = nextConfig; 
