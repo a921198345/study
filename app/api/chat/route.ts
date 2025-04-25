@@ -140,6 +140,33 @@ function getSafetyResponse(): string {
   return "同学，作为您的学习搭子，我希望我们的对话能够保持积极健康的氛围。如果您有关于学习或者生活上的困惑，我很乐意陪您聊一聊，为您提供支持和鼓励。请避免发送不适当的内容，我们可以探讨更有意义的话题。";
 }
 
+// 模型请求超时控制
+async function callDeepSeekWithTimeout(messages: any[], timeout = 30000) {
+  return new Promise(async (resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error('DeepSeek API调用超时'));
+    }, timeout);
+
+    try {
+      const result = await deepseek.chat.completions.create({
+        model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+        messages,
+        max_tokens: 1500,
+        temperature: 0.7,
+        top_p: 0.9,
+        frequency_penalty: 0,
+        presence_penalty: 0
+      });
+      
+      clearTimeout(timeoutId);
+      resolve(result);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      reject(error);
+    }
+  });
+}
+
 export async function POST(request: Request) {
   try {
     // 1. 解析并验证请求内容
@@ -175,7 +202,7 @@ export async function POST(request: Request) {
     const isLegal = isLegalQuestion(query);
     console.log(`问题类型: ${isLegal ? '法律相关' : '日常互动'}`);
     
-    // 4. 检查缓存
+    // 4. 检查缓存 - 对常见问题提前返回，减少处理时间
     const cacheKey = query.trim().toLowerCase();
     const cachedEntry = questionCache.get(cacheKey);
     if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL) {
@@ -183,7 +210,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ answer: cachedEntry.answer }, { headers: corsHeaders });
     }
     
-    // 5. 并行执行知识搜索(法律问题)和模型预热
+    // 5. 并行执行知识搜索(法律问题)和模型预热 - 设置合理超时
     let knowledgeContext = '';
     let correctedQuery = query;
     let wasTermCorrected = false;
@@ -221,29 +248,30 @@ export async function POST(request: Request) {
       correctedQuery = termResult.correctedQuery;
       wasTermCorrected = termResult.wasTermCorrected;
       
-      // 并行执行知识搜索和模型预热
-      const [knowledgeResult, _] = await Promise.all([
-        isLegal ? searchKnowledge(correctedQuery) : Promise.resolve(''),
-        warmupModel()
-      ]);
+      // 并行执行知识搜索和模型预热，设置5秒超时
+      const knowledgePromise = isLegal ? 
+        Promise.race([
+          searchKnowledge(correctedQuery),
+          new Promise<string>((_, reject) => setTimeout(() => reject(new Error('知识搜索超时')), 5000))
+        ]) : Promise.resolve('');
       
-      // 直接使用字符串结果
-      knowledgeContext = knowledgeResult || '';
+      try {
+        knowledgeContext = await knowledgePromise;
+        console.log('知识库搜索完成');
+      } catch (error) {
+        console.warn('知识库搜索超时或出错，继续处理');
+        knowledgeContext = '';
+      }
       
       if (isLegal) {
         console.log('找到相关知识:', knowledgeContext ? '是' : '否');
       }
     } catch (error) {
       console.error('知识搜索或模型预热失败:', error);
-      // 打印更多错误信息，帮助调试智谱API问题
-      if (error instanceof Error) {
-        console.error('错误详情:', error.message);
-        console.error('错误堆栈:', error.stack);
-      }
       // 继续处理，使用默认值
     }
     
-    // 6. 创建系统提示词
+    // 6. 创建系统提示词并使用带超时的API调用
     let systemPrompt: string;
     
     if (isLegal) {
@@ -292,119 +320,51 @@ ${knowledgeContext || '使用你的专业知识准确回答法律相关问题。
       `${characterPrompts?.xiaoxue || ''}\n\n${systemPrompt}` : 
       systemPrompt;
     
-    // 8. 调用DeepSeek API生成回答
-    let baseAnswer = '';
+    // 8. 调用DeepSeek API，设置20秒超时
     try {
-      const response = await deepseek.chat.completions.create({
-        model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
-        messages: [
-          {
-            role: "system",
-            content: fullPrompt
-          },
-          {
-            role: "user",
-            content: correctedQuery || query
-          }
-        ],
-        temperature: isLegal ? 0.5 : 0.7, // 非法律问题温度稍高，增加创造性
-        max_tokens: isLegal ? 1000 : 500, // 非法律问题长度可以短一些
-      });
+      const response = await callDeepSeekWithTimeout([
+        {
+          role: "system",
+          content: fullPrompt
+        },
+        {
+          role: "user",
+          content: correctedQuery || query
+        }
+      ], 20000);
       
-      baseAnswer = response.choices[0]?.message?.content || '';
+      const answer = response.choices[0]?.message?.content || '抱歉，我无法回答这个问题。';
       
-      // 如果API返回了空回答，可能是安全过滤触发
-      if (!baseAnswer || baseAnswer.trim() === '') {
-        console.log('DeepSeek API返回空回答，可能是触发了安全过滤');
-        return NextResponse.json({ answer: getSafetyResponse() }, { headers: corsHeaders });
-      }
-    
-    } catch (error: any) {
-      console.error('调用DeepSeek API失败:', error?.message || error);
-      
-      // 如果是429错误(Rate Limit)，返回相应提示
-      if (error?.status === 429) {
-        return NextResponse.json({ 
-          answer: "抱歉，我现在有点忙，请稍后再试一下吧！" 
-        }, { headers: corsHeaders });
+      // 添加到缓存
+      if (answer && answer.length > 0) {
+        questionCache.set(cacheKey, {
+          answer,
+          timestamp: Date.now()
+        });
       }
       
-      // 如果是400错误(Bad Request)，可能是内容被过滤
-      if (error?.status === 400) {
-        console.log('API请求被拒绝，可能是内容不适当');
-        return NextResponse.json({ answer: getSafetyResponse() }, { headers: corsHeaders });
-      }
-      
-      // 其他API错误，使用备用回答
-      baseAnswer = isLegal 
-        ? "抱歉，我目前无法获取相关法律信息。请稍后再试，或尝试换个方式提问。"
-        : "抱歉，我暂时没法回答这个问题。我们可以聊聊别的话题吗？";
-    }
-    
-    // 9. 检查返回的内容是否符合质量要求
-    if (!isQualityResponse(baseAnswer)) {
-      console.log('API返回的内容质量不佳，使用备用回答');
-      
-      if (isLegal && knowledgeContext) {
-        // 如果有知识库内容，生成简单回答
-        baseAnswer = `关于${correctedQuery || query}的问题，我可以告诉您:\n\n${knowledgeContext}\n\n希望这些信息对您有所帮助！`;
-      } else if (isLegal) {
-        // 没有知识库内容，使用通用法律回答
-        baseAnswer = `这是一个关于${correctedQuery || query}的法律问题。作为法考辅导老师，我建议您查阅相关法条和案例，或者参考权威法学教材获取准确信息。如果您有更具体的问题，请告诉我，我会尽力给予专业指导。`;
-      } else {
-        // 日常互动的备用回答
-        baseAnswer = `谢谢您的问题！作为您的学习搭子，我很高兴能和您聊天。您问的是关于"${query}"，这个话题很有趣呢！我们可以多交流，如果您有学习上的困难，我也很乐意帮助您解决问题或者给您鼓励。`;
-      }
-    }
-    
-    // 10. 添加前缀和后缀，并格式化回答
-    let preAnswer = '';
-    let postAnswer = '';
-    
-    if (isLegal) {
-      // 法律问题的前缀和后缀
-      preAnswer = `好的同学，`;
-      if (wasTermCorrected) {
-        preAnswer += `关于"${correctedQuery}"（您提到的是"${query}"）的问题，`;
-      } else {
-        preAnswer += `关于"${query}"的问题，`;
-      }
-      
-      postAnswer = `\n\n还有什么不明白的地方，随时问我哦！坚持学习，法考并不难，你一定能考过！`;
-    } else {
-      // 日常互动不需要特定前缀
-      preAnswer = '';
-      postAnswer = '';
-    }
-    
-    // 11. 格式化回答，去除多余星号和不规范格式
-    let formattedAnswer = '';
-    try {
-      // 使用基本格式化
-      let initialFormatted = (preAnswer + formatResponse(baseAnswer) + postAnswer).trim();
-      
-      // 使用增强的格式化函数进一步改进排版
-      formattedAnswer = formatFinalResponse(initialFormatted);
+      return NextResponse.json({ answer }, { headers: corsHeaders });
     } catch (error) {
-      console.error('格式化回答出错:', error);
-      formattedAnswer = baseAnswer; // 格式化失败时使用原始回答
+      console.error('DeepSeek API调用失败:', error);
+      // 如果是API超时错误，返回更友好的错误信息
+      if (error instanceof Error && error.message.includes('超时')) {
+        return NextResponse.json(
+          { answer: '抱歉，我处理这个问题花费的时间太长了。请尝试提问更简单或更明确的问题。' }, 
+          { headers: corsHeaders }
+        );
+      }
+      
+      // 其他错误情况
+      return NextResponse.json(
+        { answer: '抱歉，我现在无法回答这个问题。请稍后再试。' }, 
+        { headers: corsHeaders }
+      );
     }
-    
-    // 12. 存入缓存
-    questionCache.set(cacheKey, {
-      answer: formattedAnswer,
-      timestamp: Date.now()
-    });
-    
-    // 13. 返回最终回答
-    return NextResponse.json({ answer: formattedAnswer }, { headers: corsHeaders });
-    
-  } catch (error: any) {
-    console.error('处理聊天请求时出错:', error);
-    // 发生未知错误时返回友好提示，不暴露错误细节给用户
+  } catch (error) {
+    console.error('API处理出错:', error);
     return NextResponse.json(
-      { answer: "抱歉，我遇到了一些技术问题。请稍后再试，或者尝试换一种方式提问。" },
-      { status: 500, headers: corsHeaders }
+      { answer: '抱歉，服务器处理请求时出现了错误。请稍后再试。' }, 
+      { headers: corsHeaders, status: 500 }
     );
   }
 } 
