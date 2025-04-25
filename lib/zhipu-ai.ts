@@ -5,11 +5,20 @@ export class ZhipuAI {
   private apiUrl = 'https://open.bigmodel.cn/api/paas/v4';
   private apiKey: string;
   private apiSecret: string;
+  private baseUrl: string;
 
   constructor() {
-    // 从环境变量读取智谱AI的API密钥
-    this.apiKey = process.env.ZHIPU_API_KEY || '';
+    // 检查环境变量是否存在
+    const apiKey = process.env.ZHIPU_API_KEY;
+    if (!apiKey) {
+      console.warn('警告: ZHIPU_API_KEY环境变量未设置');
+      this.apiKey = '';
+    } else {
+      this.apiKey = apiKey;
+    }
+    
     this.apiSecret = process.env.ZHIPU_API_SECRET || '';
+    this.baseUrl = process.env.ZHIPU_API_URL || 'https://open.bigmodel.cn/api/paas/v4';
     
     if (!this.apiKey || !this.apiSecret) {
       console.warn('智谱AI API密钥未设置，请在环境变量中配置ZHIPU_API_KEY和ZHIPU_API_SECRET');
@@ -55,10 +64,8 @@ export class ZhipuAI {
 
   // 模拟知识检索API调用
   public async searchKnowledge(query: string): Promise<string> {
-    // 如果未配置API密钥，使用模拟数据
-    if (!this.apiKey || !this.apiSecret) {
-      console.log('使用模拟数据进行知识检索');
-      return this.simulateKnowledgeSearch(query);
+    if (!this.apiKey) {
+      throw new Error('智谱AI API密钥未配置');
     }
 
     try {

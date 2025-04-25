@@ -189,14 +189,46 @@ export async function POST(request: Request) {
     let wasTermCorrected = false;
     
     try {
+      // 创建一个对术语进行修正的函数
+      const correctTerms = (q: string) => {
+        const termCorrections: Record<string, string> = {
+          '刑事责任能力': '刑事责任年龄',
+          '刑事年龄': '刑事责任年龄',
+          '结婚证': '结婚登记',
+          '婚姻证': '结婚登记',
+          '离婚证': '离婚登记',
+          '合同有效性': '合同效力',
+          '合同是否有效': '合同效力',
+          '物权法': '物权',
+          '继承法': '继承权'
+        };
+        
+        let corrected = q;
+        let changed = false;
+        
+        for (const [incorrectTerm, correctTerm] of Object.entries(termCorrections)) {
+          if (q.includes(incorrectTerm)) {
+            corrected = corrected.replace(incorrectTerm, correctTerm);
+            changed = true;
+          }
+        }
+        
+        return { correctedQuery: corrected, wasTermCorrected: changed };
+      };
+      
+      // 首先进行术语修正
+      const termResult = correctTerms(query);
+      correctedQuery = termResult.correctedQuery;
+      wasTermCorrected = termResult.wasTermCorrected;
+      
+      // 并行执行知识搜索和模型预热
       const [knowledgeResult, _] = await Promise.all([
-        isLegal ? searchKnowledge(query) : { context: '', correctedQuery: query, wasTermCorrected: false },
+        isLegal ? searchKnowledge(correctedQuery) : Promise.resolve(''),
         warmupModel()
       ]);
       
-      knowledgeContext = knowledgeResult.context || '';
-      correctedQuery = knowledgeResult.correctedQuery;
-      wasTermCorrected = knowledgeResult.wasTermCorrected;
+      // 直接使用字符串结果
+      knowledgeContext = knowledgeResult || '';
       
       if (isLegal) {
         console.log('找到相关知识:', knowledgeContext ? '是' : '否');
