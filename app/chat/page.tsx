@@ -317,14 +317,15 @@ export default function ChatPage() {
                           <ReactMarkdown 
                             components={{
                               // 确保段落正确渲染
-                              p: ({ children }) => <p>{children}</p>,
+                              p: ({node, ...props}) => <p className="mb-2" {...props} />,
                               // 确保加粗文本正确渲染
-                              strong: ({ children }) => <strong>{children}</strong>,
+                              strong: ({node, ...props}) => <strong className="font-bold" {...props} />,
                               // 确保列表正确渲染 
-                              ul: ({ children }) => <ul>{children}</ul>,
-                              ol: ({ children }) => <ol>{children}</ol>,
-                              li: ({ children }) => <li>{children}</li>
+                              ul: ({node, ...props}) => <ul className="list-disc pl-4 mb-2" {...props} />,
+                              ol: ({node, ...props}) => <ol className="list-decimal pl-4 mb-2" {...props} />,
+                              li: ({node, ...props}) => <li className="ml-2 mb-1" {...props} />
                             }}
+                            remarkPlugins={[]}
                           >
                             {message.content}
                           </ReactMarkdown>

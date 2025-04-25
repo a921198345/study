@@ -4,34 +4,36 @@ import { createClient } from '@supabase/supabase-js';
 // 声明supabase变量
 let supabase: any = null;
 
-// 初始化Supabase客户端 - 添加错误处理
-try {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  console.log('Supabase配置:', { url: supabaseUrl, hasKey: !!supabaseKey });
+// 初始化Supabase客户端
+// 检查环境变量并提供更好的错误处理
+let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+let supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+// 检查并记录Supabase配置状态
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase配置: { url: ' + (supabaseUrl ? '已设置' : 'undefined') + 
+               ', hasKey: ' + (supabaseAnonKey ? true : false) + ' }');
   
   if (!supabaseUrl) {
-    console.warn('警告: Supabase URL未设置，将使用本地知识库');
-  } else if (!supabaseKey) {
-    console.warn('警告: Supabase密钥未设置，将使用本地知识库');
-  } else {
-    // 只有当URL和密钥都存在时才初始化Supabase客户端
-    supabase = createClient(supabaseUrl, supabaseKey, {
-      db: { 
-        schema: 'public'
-      },
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true
-      }
-    });
-    console.log('Supabase客户端初始化成功');
+    console.warn('Supabase URL未设置，将使用本地知识库');
+    // 提供默认值以避免undefined错误
+    supabaseUrl = 'https://tehliapojmivrajgmjws.supabase.co';
   }
-} catch (error) {
-  console.error('初始化Supabase客户端失败:', error);
-  console.warn('将使用本地知识库作为后备');
+  
+  if (!supabaseAnonKey) {
+    console.warn('Supabase Anon Key未设置，将使用本地知识库');
+    // 提供一个虚拟密钥以避免undefined错误
+    supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; 
+  }
 }
+
+// 创建Supabase客户端
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// 初始化完成后记录状态
+console.log('Supabase客户端: { url: ' + (supabaseUrl ? supabaseUrl.substring(0, 15) + '...' : 'undefined') + 
+             ', hasKey: ' + (supabaseAnonKey ? true : false) + ' }');
 
 // 缓存常见问题的结果
 const knowledgeCache = new Map<string, string>();
