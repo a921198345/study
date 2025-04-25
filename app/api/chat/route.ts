@@ -19,6 +19,21 @@ const deepseek = new OpenAI({
   baseURL: process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1',
 });
 
+// 配置CORS响应头
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// 处理OPTIONS预检请求
+export async function OPTIONS() {
+  return new NextResponse(null, { 
+    status: 200, 
+    headers: corsHeaders 
+  });
+}
+
 // 内容安全检查 - 增强检测模式
 function isSafeContent(content: string): boolean {
   if (!content || typeof content !== 'string') {
@@ -133,13 +148,19 @@ export async function POST(request: Request) {
       requestData = await request.json();
     } catch (error) {
       console.error('请求解析失败:', error);
-      return NextResponse.json({ error: '无效的请求格式' }, { status: 400 });
+      return NextResponse.json({ error: '无效的请求格式' }, { 
+        status: 400,
+        headers: corsHeaders
+      });
     }
     
     const { query } = requestData;
     
     if (!query || typeof query !== 'string') {
-      return NextResponse.json({ error: '请提供有效的查询' }, { status: 400 });
+      return NextResponse.json({ error: '请提供有效的查询' }, { 
+        status: 400,
+        headers: corsHeaders
+      });
     }
     
     console.log(`收到查询: "${query}"`);
@@ -147,7 +168,7 @@ export async function POST(request: Request) {
     // 2. 安全检查 - 如果检测到不安全内容，直接返回安全回复
     if (!isSafeContent(query)) {
       console.log('检测到不安全内容，返回安全回复');
-      return NextResponse.json({ answer: getSafetyResponse() });
+      return NextResponse.json({ answer: getSafetyResponse() }, { headers: corsHeaders });
     }
     
     // 3. 判断问题类型
@@ -159,7 +180,7 @@ export async function POST(request: Request) {
     const cachedEntry = questionCache.get(cacheKey);
     if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL) {
       console.log('使用缓存回答');
-      return NextResponse.json({ answer: cachedEntry.answer });
+      return NextResponse.json({ answer: cachedEntry.answer }, { headers: corsHeaders });
     }
     
     // 5. 并行执行知识搜索(法律问题)和模型预热
@@ -263,7 +284,7 @@ ${knowledgeContext || '使用你的专业知识准确回答法律相关问题。
       // 如果API返回了空回答，可能是安全过滤触发
       if (!baseAnswer || baseAnswer.trim() === '') {
         console.log('DeepSeek API返回空回答，可能是触发了安全过滤');
-        return NextResponse.json({ answer: getSafetyResponse() });
+        return NextResponse.json({ answer: getSafetyResponse() }, { headers: corsHeaders });
       }
     
     } catch (error: any) {
@@ -273,13 +294,13 @@ ${knowledgeContext || '使用你的专业知识准确回答法律相关问题。
       if (error?.status === 429) {
         return NextResponse.json({ 
           answer: "抱歉，我现在有点忙，请稍后再试一下吧！" 
-        });
+        }, { headers: corsHeaders });
       }
       
       // 如果是400错误(Bad Request)，可能是内容被过滤
       if (error?.status === 400) {
         console.log('API请求被拒绝，可能是内容不适当');
-        return NextResponse.json({ answer: getSafetyResponse() });
+        return NextResponse.json({ answer: getSafetyResponse() }, { headers: corsHeaders });
       }
       
       // 其他API错误，使用备用回答
@@ -344,14 +365,14 @@ ${knowledgeContext || '使用你的专业知识准确回答法律相关问题。
     });
     
     // 13. 返回最终回答
-    return NextResponse.json({ answer: formattedAnswer });
+    return NextResponse.json({ answer: formattedAnswer }, { headers: corsHeaders });
     
   } catch (error: any) {
     console.error('处理聊天请求时出错:', error);
     // 发生未知错误时返回友好提示，不暴露错误细节给用户
     return NextResponse.json(
       { answer: "抱歉，我遇到了一些技术问题。请稍后再试，或者尝试换一种方式提问。" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 } 

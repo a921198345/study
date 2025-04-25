@@ -12,9 +12,11 @@ console.log('Supabase配置:', {
 // 初始化 Supabase 客户端
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   db: { 
-    schema: 'public',
-    poolSize: 10,
-    poolTimeout: 5
+    schema: 'public'
+  },
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true
   }
 });
 
