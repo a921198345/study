@@ -1,24 +1,37 @@
 import { ZhipuAI } from '@/lib/zhipu-ai';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// 声明supabase变量
+let supabase: any = null;
 
-console.log('Supabase配置:', {
-  url: SUPABASE_URL,
-  hasKey: !!SUPABASE_ANON_KEY
-});
-
-// 初始化 Supabase 客户端
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  db: { 
-    schema: 'public'
-  },
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true
+// 初始化Supabase客户端 - 添加错误处理
+try {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  console.log('Supabase配置:', { url: supabaseUrl, hasKey: !!supabaseKey });
+  
+  if (!supabaseUrl) {
+    console.warn('警告: Supabase URL未设置，将使用本地知识库');
+  } else if (!supabaseKey) {
+    console.warn('警告: Supabase密钥未设置，将使用本地知识库');
+  } else {
+    // 只有当URL和密钥都存在时才初始化Supabase客户端
+    supabase = createClient(supabaseUrl, supabaseKey, {
+      db: { 
+        schema: 'public'
+      },
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true
+      }
+    });
+    console.log('Supabase客户端初始化成功');
   }
-});
+} catch (error) {
+  console.error('初始化Supabase客户端失败:', error);
+  console.warn('将使用本地知识库作为后备');
+}
 
 // 缓存常见问题的结果
 const knowledgeCache = new Map<string, string>();
@@ -210,43 +223,29 @@ export function getKnowledgeDetail(id: string): KnowledgeItem | undefined {
 }
 
 // 搜索知识库 - 保留这个实现作为主要导出函数
-export async function searchKnowledge(query: string): Promise<KnowledgeResult> {
-  // 检查输入是否为空
+export async function searchKnowledge(query: string): Promise<string> {
+  // 检查查询是否为空
   if (!query || query.trim() === '') {
-    return {
-      context: '',
-      correctedQuery: query,
-      wasTermCorrected: false
-    };
+    return '请输入要查询的内容';
   }
 
-  // 修正常见错误的法律术语
-  const { correctedQuery, wasTermCorrected } = correctLegalTerms(query);
-
   try {
-    // 使用智谱AI API搜索知识
+    // 尝试使用智谱AI进行知识检索
     const zhipuAI = new ZhipuAI();
-    let context = await zhipuAI.searchKnowledge(correctedQuery);
-
-    // 格式化响应文本
-    if (context) {
-      context = formatResponse(context);
+    try {
+      const result = await zhipuAI.searchKnowledge(query);
+      return formatResponseText(result);
+    } catch (error) {
+      console.error('智谱AI知识检索失败:', error);
+      console.log('回退到本地知识库查询');
+      // 如果智谱AI失败，回退到本地知识库
+      const localResult = await searchKnowledgeSimple(query);
+      return formatResponseText(localResult);
     }
-
-    return {
-      context,
-      correctedQuery,
-      wasTermCorrected
-    };
   } catch (error) {
-    console.error('知识库检索失败:', error);
-    
-    // 发生错误时返回空结果
-    return {
-      context: '',
-      correctedQuery,
-      wasTermCorrected
-    };
+    console.error('知识检索过程中发生错误:', error);
+    // 若出现任何错误，也回退到简单搜索
+    return formatResponseText(await searchKnowledgeSimple(query));
   }
 }
 
@@ -297,4 +296,14 @@ export function formatResponse(text: string): string {
   text = text.replace(/[^\p{L}\p{N}\p{P}\p{Z}\p{S}]/gu, '');
   
   return text.trim();
+}
+
+// 格式化响应文本 - 用于与searchKnowledge函数配合使用
+export function formatResponseText(text: string): string {
+  if (!text || text.trim() === '') {
+    return '很抱歉，我没能找到相关信息。请尝试换一种提问方式，或者提供更多细节。';
+  }
+  
+  // 使用已有的格式化函数处理文本
+  return formatResponse(text);
 } 
