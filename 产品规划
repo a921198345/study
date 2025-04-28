@@ -2,8 +2,8 @@
 
 1. 产品概览
 - 考公+法考+教资考试学习助手网站  
-- 二次元ai形象提供情感支持，各学科知识库+ai提供专业咨询
-- 对话页面：基于 DeepSeek API 调用后台知识库，实时回答用户提问 
+- 历年法考真题库，用户答每一题完后可以查看解析，解析中包含该题目在学科知识树中的位置，并可以进一步查看该学科完整的知识树
+- 对话页面：基于 DeepSeek API 调用后台知识库或mcp等方式，实时回答用户提问 ，并包含该知识点在学科知识树中的位置，并可以进一步查看该学科完整的知识树
 - 个人主页：ai助教设置，会员日期等
 
 2. 用户流程
@@ -17,13 +17,5 @@
 - 后端：Next.js API Routes
 - AI 调用：DeepSeek REST API  
 - 部署：Vercel 一键部署  
-- 知识库存储：supabase
-
-相关api：
--DEEPSEEK_API_KEY=sk-83d00854f34c48d9845e1c25c9544b52
--DEEPSEEK_MODEL=deepseek-chat
--DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1
--NEXT_PUBLIC_SUPABASE_URL=https://tehliapojmivrajgmjws.supabase.co
--NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlaGxpYXBvam1pdnJhamdtandzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU0NjUyNjcsImV4cCI6MjA2MTA0MTI2N30.pRvqwaz9yzOPMCazl19Kb5zxyrYTMqkQyMCcgOBoFCA
--SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlaGxpYXBvam1pdnJhamdtandzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTQ2NTI2NywiZXhwIjoyMDYxMDQxMjY3fQ.r5X3OegOnNfJx7M2HpyyWcCI2Pnp6VPVefndg7pxTQk
+- 知识库存储：
 

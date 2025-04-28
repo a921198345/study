@@ -1,0 +1,8 @@
+[2025-04-28T11:12:34.402Z] [INFO] 开始处理OPML文件: /Users/acheng/Downloads/ai-exam-companion 2/data/opml/2025-04-28T11-12-33-489Z-__.opml
+[2025-04-28T11:12:34.409Z] [INFO] 开始解析OPML文件: /Users/acheng/Downloads/ai-exam-companion 2/data/opml/2025-04-28T11-12-33-489Z-__.opml
+[2025-04-28T11:12:34.587Z] [INFO] OPML文件解析成功
+[2025-04-28T11:12:34.587Z] [INFO] 开始转换OPML到知识树结构
+[2025-04-28T11:12:34.591Z] [INFO] 成功转换OPML到知识树，共3325个节点
+[2025-04-28T11:12:34.591Z] [INFO] 开始保存知识树到: /Users/acheng/Downloads/ai-exam-companion 2/data/opml/2025-04-28T11-12-33-489Z-__.json
+[2025-04-28T11:12:34.595Z] [INFO] 成功保存知识树，节点数: 3325
+[2025-04-28T11:12:34.595Z] [INFO] OPML处理完成: /Users/acheng/Downloads/ai-exam-companion 2/data/opml/2025-04-28T11-12-33-489Z-__.opml

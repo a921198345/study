@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习搭子 - AI考试助手</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 800px;
+            padding: 2rem;
+            text-align: center;
+        }
+        h1 {
+            font-size: 3rem;
+            background: linear-gradient(to right, #c471ed, #f64f59);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 1rem;
+        }
+        p {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        .feature-card h3 {
+            color: #c471ed;
+            margin-top: 0;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(to right, #c471ed, #f64f59);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        .tech-stack {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .tech-badge {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🧠✨</div>
+        <h1>学习搭子</h1>
+        <p>智能AI考试助手，为考公、法考、教资考试提供专业知识支持与情感陪伴</p>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>专业知识库</h3>
+                <p>基于Supabase构建的专业知识库，为您提供准确、全面的考试知识点</p>
+            </div>
+            <div class="feature-card">
+                <h3>AI对话助手</h3>
+                <p>DeepSeek驱动的智能问答系统，解答疑惑，提供知识点讲解</p>
+            </div>
+            <div class="feature-card">
+                <h3>情感陪伴</h3>
+                <p>二次元AI形象陪伴学习过程，提供情感支持，减轻学习压力</p>
+            </div>
+            <div class="feature-card">
+                <h3>个性化学习</h3>
+                <p>根据您的学习进度和薄弱环节，提供定制化的学习计划和复习建议</p>
+            </div>
+        </div>
+        
+        <p>网站正在开发中，即将上线！</p>
+        
+        <div class="tech-stack">
+            <div class="tech-badge">Next.js</div>
+            <div class="tech-badge">React</div>
+            <div class="tech-badge">TypeScript</div>
+            <div class="tech-badge">Tailwind CSS</div>
+            <div class="tech-badge">Supabase</div>
+            <div class="tech-badge">DeepSeek API</div>
+        </div>
+        
+        <a href="#" class="button">敬请期待</a>
+    </div>
+</body>
+</html> 

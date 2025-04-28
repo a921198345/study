@@ -1,0 +1,192 @@
+.container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.description {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.uploadForm {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.fileInput {
+  margin-bottom: 15px;
+}
+
+.fileInput input[type="file"] {
+  display: none;
+}
+
+.fileInputLabel {
+  display: block;
+  padding: 10px 15px;
+  background-color: #e9ecef;
+  border: 1px dashed #ced4da;
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.fileInputLabel:hover {
+  background-color: #dee2e6;
+  border-color: #adb5bd;
+}
+
+.uploadButton {
+  width: 100%;
+  padding: 10px 15px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.uploadButton:hover {
+  background-color: #357abD;
+}
+
+.uploadButton:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.progressContainer {
+  margin-top: 15px;
+  background-color: #e9ecef;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: #4a90e2;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  display: block;
+  text-align: center;
+  margin-top: 5px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 15px;
+  font-size: 0.9rem;
+}
+
+.resultContainer {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.resultTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #333;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 10px;
+}
+
+.resultInfo {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.resultInfo p {
+  margin-bottom: 8px;
+}
+
+.treePreview {
+  margin-top: 15px;
+  background-color: #e9ecef;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.treePreview h4 {
+  font-size: 1rem;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.nodeInfo {
+  padding: 10px;
+  background-color: #fff;
+  border-radius: 4px;
+}
+
+/* 暗黑模式样式 */
+@media (prefers-color-scheme: dark) {
+  .title, .resultTitle {
+    color: #e6e6e6;
+  }
+  
+  .description, .progressText {
+    color: #adb5bd;
+  }
+  
+  .uploadForm, .resultContainer {
+    background-color: #2d3748;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  
+  .fileInputLabel {
+    background-color: #4a5568;
+    border-color: #718096;
+    color: #e2e8f0;
+  }
+  
+  .fileInputLabel:hover {
+    background-color: #2d3748;
+    border-color: #a0aec0;
+  }
+  
+  .progressContainer {
+    background-color: #4a5568;
+  }
+  
+  .resultInfo {
+    color: #e2e8f0;
+  }
+  
+  .treePreview {
+    background-color: #4a5568;
+  }
+  
+  .nodeInfo {
+    background-color: #2d3748;
+    border: 1px solid #4a5568;
+  }
+} 

@@ -51,9 +51,12 @@
     "framer-motion": "latest",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
+    "natural": "^8.0.1",
     "next": "15.2.4",
     "next-themes": "^0.4.6",
     "openai": "^4.96.0",
+    "pdf-parse": "^1.1.1",
+    "pdf.js-extract": "^0.2.1",
     "react": "^19",
     "react-day-picker": "8.10.1",
     "react-dom": "^19",
@@ -65,6 +68,8 @@
     "tailwind-merge": "^2.5.5",
     "three": "^0.176.0",
     "vaul": "^0.9.6",
+    "xml2js": "^0.6.2",
+    "xmldom": "^0.6.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
