@@ -222,6 +222,78 @@ export function getKnowledgeDetail(id: string): KnowledgeItem | undefined {
 }
 
 /**
+ * 检查问题是否已在缓存中
+ * @param query 用户查询
+ * @returns 缓存的结果或null
+ */
+function checkQuestionCache(query: string): string | null {
+  const cacheKey = query.trim().toLowerCase();
+  
+  // 检查缓存中是否有这个问题
+  if (knowledgeCache.has(cacheKey)) {
+    const cachedValue = knowledgeCache.get(cacheKey);
+    if (cachedValue) {
+      return cachedValue;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * 将问题和答案缓存起来
+ * @param query 用户查询
+ * @param answer 回答内容
+ */
+function cacheQuestion(query: string, answer: string): void {
+  const cacheKey = query.trim().toLowerCase();
+  knowledgeCache.set(cacheKey, answer);
+  
+  // 可以在这里设置缓存过期时间，但简单实现中省略
+}
+
+/**
+ * 在本地知识库中搜索相关内容
+ * @param query 用户查询
+ * @returns 匹配的知识条目数组
+ */
+function simpleKnowledgeSearch(query: string): KnowledgeItem[] {
+  // 提取查询中的关键词
+  const keywords = extractKeywords(query);
+  
+  // 简单的相关性评分
+  const scoredResults = knowledgeBase.map(item => {
+    const score = calculateRelevanceScore(item, keywords);
+    return { item, score };
+  });
+  
+  // 按相关性排序
+  scoredResults.sort((a, b) => b.score - a.score);
+  
+  // 返回相关性足够高的结果
+  return scoredResults
+    .filter(result => result.score > 0.3)
+    .map(result => result.item);
+}
+
+/**
+ * 将搜索结果格式化为可读文本
+ * @param results 知识条目数组
+ * @returns 格式化的回答
+ */
+function formatSearchResults(results: KnowledgeItem[]): string {
+  if (results.length === 0) {
+    return '抱歉，我没有找到与您问题相关的内容。';
+  }
+  
+  // 只使用最相关的结果
+  const topResult = results[0];
+  
+  // 构建回答
+  return `${topResult.title}\n\n${topResult.content}${topResult.source ? `\n\n来源: ${topResult.source}` : ''}`;
+}
+
+/**
  * 根据用户查询搜索基础法律知识
  * @param query 用户查询
  * @returns 
