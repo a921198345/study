@@ -575,3 +575,19 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
 - **技术栈**：TypeScript, Git, Vercel
 - **修改文件**：
   - lib/knowledge.ts（更新） 
+
+### 2025-05-02（当前日期）
+- **会话主要目的**：修复思维导图在Vercel部署环境中的客户端错误
+- **完成的主要任务**：
+  - 解决思维导图加载失败的问题
+  - 修改思维导图API路由，使其兼容Vercel无服务器环境
+  - 将OPML思维导图JSON文件移至public目录，使其成为静态资源
+- **关键决策和解决方案**：
+  - 分析客户端错误日志，发现文件系统访问问题
+  - 将直接文件系统访问改为使用fetch API获取静态JSON文件
+  - 创建public/data/opml目录，用于静态思维导图数据存储
+  - 确保API在本地和生产环境都能正常工作
+- **技术栈**：Next.js, TypeScript, Vercel serverless
+- **修改文件**：
+  - app/api/mindmap-data/route.ts（更新）
+  - public/data/opml/（新增思维导图数据文件） 
