@@ -59,9 +59,9 @@ function MindMapContent() {
     async function fetchMindMapData() {
       try {
         setLoading(true)
-        // 使用原始民法.opml生成的JSON文件，而非简化版
-        console.log('开始加载原始民法思维导图数据...');
-        const response = await fetch(`/data/opml/2025-04-28T11-12-33-489Z-__.json`, {
+        // 使用处理后的民法思维导图数据
+        console.log('开始加载民法思维导图数据...');
+        const response = await fetch(`/data/2025-04-28T11-12-33-489Z-__.json`, {
           cache: 'no-store', // 禁用缓存，确保每次都获取最新数据
           headers: {
             'Content-Type': 'application/json'
@@ -77,7 +77,14 @@ function MindMapContent() {
         console.log('JSON响应获取成功，开始解析...');
         const data = await response.json()
         console.log('JSON解析成功，设置数据...');
-        setMindmapData(data)
+        
+        // 检查数据格式，提取tree字段（如果存在）
+        if (data.tree && Array.isArray(data.tree)) {
+          console.log('检测到处理后的OPML数据格式，提取tree字段');
+          setMindmapData(data.tree);
+        } else {
+          setMindmapData(data);
+        }
       } catch (err: any) {
         console.error('Error fetching mindmap:', err)
         setError(err.message)

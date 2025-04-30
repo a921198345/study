@@ -32,7 +32,12 @@ async function parseOpml(filePath) {
     log(`开始解析OPML文件: ${filePath}`);
     const opmlContent = await readFile(filePath, 'utf8');
     
-    const parser = new xml2js.Parser({ explicitArray: false });
+    // 使用更合适的解析选项
+    const parser = new xml2js.Parser({ 
+      explicitArray: false,
+      explicitChildren: false,
+      mergeAttrs: true    // 将属性合并到对象中
+    });
     const result = await promisify(parser.parseString)(opmlContent);
     
     if (!result.opml || !result.opml.body || !result.opml.body.outline) {
@@ -48,13 +53,13 @@ async function parseOpml(filePath) {
         outline.outline = [outline.outline];
       }
       
-      // 提取节点标题，OPML文件中的标题是在text属性中
+      // 在合并属性的情况下，text属性会被直接放在对象上
       const title = outline.text || '';
       
       const node = {
         id: Math.random().toString(36).substr(2, 9),
         level: level,
-        title: title, // 使用提取的标题
+        title: title,
         children: []
       };
       
