@@ -1,0 +1,21 @@
+[
+  {
+    "id": "root",
+    "title": "测试根节点",
+    "level": 0,
+    "children": [
+      {
+        "id": "child1",
+        "title": "子节点1",
+        "level": 1,
+        "children": []
+      },
+      {
+        "id": "child2",
+        "title": "子节点2",
+        "level": 1,
+        "children": []
+      }
+    ]
+  }
+] 
