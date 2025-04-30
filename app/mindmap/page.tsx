@@ -59,9 +59,9 @@ function MindMapContent() {
     async function fetchMindMapData() {
       try {
         setLoading(true)
-        // 改用新的简化版民法思维导图数据文件
-        console.log('开始加载思维导图数据...');
-        const response = await fetch(`/data/simple-mindmap.json`, {
+        // 使用原始民法.opml生成的JSON文件，而非简化版
+        console.log('开始加载原始民法思维导图数据...');
+        const response = await fetch(`/data/opml/2025-04-28T11-12-33-489Z-__.json`, {
           cache: 'no-store', // 禁用缓存，确保每次都获取最新数据
           headers: {
             'Content-Type': 'application/json'
