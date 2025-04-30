@@ -30,8 +30,10 @@ import {
   Maximize2,
   Minimize2,
   VolumeX,
+  BookOpen,
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
+import { extractKeywordsClient } from "@/lib/keywords"
 
 type Message = {
   id: string
@@ -238,6 +240,22 @@ export default function ChatPage() {
     }
   };
 
+  const handleViewMindMap = (content: string) => {
+    // 指定民法思维导图的ID
+    const mindmapId = "1745821419752-03、2025民法客观题思维导图_共45页";
+    
+    // 从AI回答中提取关键词
+    const nodeIds = extractKeywordsClient(content);
+    
+    // 如果找到匹配的节点，跳转并高亮显示第一个
+    if (nodeIds.length > 0) {
+      window.open(`/mindmap?id=${mindmapId}&node=${nodeIds[0]}`, '_blank');
+    } else {
+      // 如果没找到匹配节点，直接跳转到思维导图
+      window.open(`/mindmap?id=${mindmapId}`, '_blank');
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-black overflow-hidden">
       {/* Animated background */}
@@ -331,6 +349,18 @@ export default function ChatPage() {
                           >
                             {message.content}
                           </ReactMarkdown>
+                          
+                          {message.sender === "ai" && message.content && message.content !== "思考中..." && (
+                            <div className="mt-3 flex justify-end">
+                              <button 
+                                onClick={() => handleViewMindMap(message.content)}
+                                className="flex items-center space-x-1 rounded-md bg-white/10 px-2 py-1 text-xs hover:bg-white/20 transition-colors"
+                              >
+                                <BookOpen className="h-3 w-3 mr-1" />
+                                <span>查看思维导图</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <p className="text-sm">{message.content}</p>
