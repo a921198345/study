@@ -543,21 +543,22 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
   - `lib/keywords.ts` 
 
 ### 2024-05-19（当前日期）
-- **会话主要目的**：检查和了解项目的AI集成实现方式
+- **会话主要目的**：使用原始民法OPML文件完善思维导图显示
 - **完成的主要任务**：
-  - 查看了ZhipuAI类的实现（lib/zhipu-ai.ts）
-  - 检查了DeepseekAI类的实现（lib/deepseek-ai.ts）
-  - 了解了AI接口的通用设计模式
-  - 解决了思维导图组件的客户端渲染问题
+  - 修改了思维导图页面代码，使用从原始民法.opml生成的完整JSON文件
+  - 将原始OPML处理后的JSON文件添加到public静态目录中
+  - 确保思维导图内容与用户上传的民法.opml文件完全一致
+  - 解决了数据展示问题，使思维导图显示原始的完整内容
 - **关键决策和解决方案**：
-  - 使用Suspense边界解决了useSearchParams钩子的客户端/服务器不兼容问题
-  - 分析了AI类的实现方式，为未来扩展做准备
-  - 审查了知识库搜索和聊天功能的具体实现
-- **技术栈**：Next.js, React, TypeScript, API集成
+  - 对比分析了简化版和原始民法OPML文件的数据结构
+  - 修改app/mindmap/page.tsx文件中的数据源路径
+  - 使用原始民法OPML生成的JSON文件替代简化版
+  - 确保Vercel和本地环境能一致访问静态JSON资源
+- **技术栈**：Next.js, React, TypeScript
 - **修改文件**：
-  - 查看：`lib/zhipu-ai.ts`
-  - 查看：`lib/deepseek-ai.ts`
-  - 修改：`app/mindmap/page.tsx`
+  - app/mindmap/page.tsx（更新）
+  - public/data/opml/2025-04-28T11-12-33-489Z-__.json（添加）
+  - git相关操作（提交更改并推送到GitHub仓库）
 
 ### 2025-04-30（当前日期）
 - **会话主要目的**：添加DeepSeekAI集成，实现聊天和知识检索功能
