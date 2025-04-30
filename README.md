@@ -560,6 +560,25 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
   - public/data/opml/2025-04-28T11-12-33-489Z-__.json（添加）
   - git相关操作（提交更改并推送到GitHub仓库）
 
+### 2024-05-20（当前日期）
+- **会话主要目的**：彻底修复思维导图标题显示问题
+- **完成的主要任务**：
+  - 修改OPML处理脚本，改进XML解析和标题提取逻辑
+  - 更新SimpleMindMap组件，支持新的数据结构和ID引用
+  - 优化页面加载逻辑，确保正确处理和显示新格式数据
+  - 重新处理民法OPML文件并生成正确的JSON数据
+- **关键决策和解决方案**：
+  - 修改xml2js解析配置，启用mergeAttrs选项直接合并XML属性
+  - 简化标题提取逻辑，确保获取正确的节点text属性
+  - 改进数据加载流程，支持新的JSON数据结构
+  - 保证数据一致性，同步更新了多个版本的JSON文件
+- **技术栈**：Next.js, React, TypeScript, xml2js
+- **修改文件**：
+  - scripts/process-opml.js（修改OPML处理逻辑）
+  - app/mindmap/page.tsx（调整数据加载路径）
+  - components/SimpleMindMap.tsx（增强对各种数据格式的支持）
+  - public/data/2025-04-28T11-12-33-489Z-__.json（更新数据文件）
+
 ### 2025-04-30（当前日期）
 - **会话主要目的**：添加DeepSeekAI集成，实现聊天和知识检索功能
 - **完成的主要任务**：
