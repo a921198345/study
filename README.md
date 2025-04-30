@@ -541,3 +541,37 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
   - `app/mindmap/page.tsx`
   - `app/chat/page.tsx`
   - `lib/keywords.ts` 
+
+### 2025-04-30（当前日期）
+- **会话主要目的**：添加DeepSeekAI集成，实现聊天和知识检索功能
+- **完成的主要任务**：
+  - 创建DeepSeekAI类实现（lib/deepseek-ai.ts）
+  - 实现知识检索功能
+  - 创建聊天接口服务
+  - 添加模拟响应功能，应对API不可用情况
+- **关键决策和解决方案**：
+  - 设计类似ZhipuAI的统一接口实现
+  - 实现本地回退机制，确保服务在API不可用时仍可运行
+  - 使用axios处理API请求
+  - 添加错误处理和日志记录功能
+- **技术栈**：TypeScript, axios, DeepSeek API
+- **修改文件**：
+  - lib/deepseek-ai.ts（新增）
+  - lib/chat.ts（新增）
+  - lib/knowledge.ts（更新） 
+
+### 2025-05-01（当前日期）
+- **会话主要目的**：修复Vercel部署构建失败问题
+- **完成的主要任务**：
+  - 修复了lib/knowledge.ts中缺失的缓存相关函数
+  - 添加了checkQuestionCache和cacheQuestion函数实现
+  - 实现了simpleKnowledgeSearch和formatSearchResults函数
+  - 补全了知识检索功能的本地回退机制
+- **关键决策和解决方案**：
+  - 分析构建日志，确定错误是由于缺少函数实现导致
+  - 实现简单的内存缓存机制，提高重复查询的响应速度
+  - 完善本地知识库搜索功能，作为API不可用时的后备方案
+  - 保持与已有代码风格和命名约定的一致性
+- **技术栈**：TypeScript, Git, Vercel
+- **修改文件**：
+  - lib/knowledge.ts（更新） 
