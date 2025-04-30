@@ -1,9 +1,45 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MindMap } from '@/components/MindMap'
 import { ZoomIn, ZoomOut, ArrowLeft, Home, Search } from 'lucide-react'
+import Error from 'next/error'
+import { SimpleMindMap } from '@/components/SimpleMindMap'
+
+// 错误边界组件
+function ErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [hasError, setHasError] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  // 在客户端捕获错误
+  useEffect(() => {
+    const handleError = (error: ErrorEvent) => {
+      console.error('全局错误捕获:', error);
+      setHasError(true);
+      setError(error.error);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-900 text-white flex-col">
+        <h2 className="text-2xl text-red-400 mb-4">思维导图加载失败</h2>
+        <p className="text-gray-300 mb-2">错误信息: {error?.message || '未知错误'}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+        >
+          重新加载
+        </button>
+      </div>
+    );
+  }
+
+  return children;
+}
 
 function MindMapContent() {
   const [mindmapData, setMindmapData] = useState<any>(null)
@@ -15,7 +51,7 @@ function MindMapContent() {
   
   const router = useRouter()
   const searchParams = useSearchParams()
-  const highlightNodeId = searchParams.get('node')
+  const highlightNodeId = searchParams?.get('node')
   
   // 获取思维导图数据
   useEffect(() => {
@@ -23,11 +59,22 @@ function MindMapContent() {
       try {
         setLoading(true)
         // 直接从静态JSON文件加载数据，避免通过API路由
-        const response = await fetch(`/data/opml/2025-04-28T11-12-33-489Z-__.json`)
+        console.log('开始加载静态JSON文件...');
+        const response = await fetch(`/data/opml/2025-04-28T11-12-33-489Z-__.json`, {
+          cache: 'no-store', // 禁用缓存，确保每次都获取最新数据
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        
         if (!response.ok) {
-          throw new Error('思维导图数据加载失败')
+          console.error('加载失败状态码:', response.status);
+          throw new Error(`思维导图数据加载失败: ${response.status} ${response.statusText}`)
         }
+        
+        console.log('JSON响应获取成功，开始解析...');
         const data = await response.json()
+        console.log('JSON解析成功，设置数据...');
         setMindmapData(data)
       } catch (err: any) {
         console.error('Error fetching mindmap:', err)
@@ -41,11 +88,11 @@ function MindMapContent() {
   }, [])
   
   // 处理缩放
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 2))
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.5))
+  const handleZoomIn = useCallback(() => setZoom(prev => Math.min(prev + 0.2, 2)), [])
+  const handleZoomOut = useCallback(() => setZoom(prev => Math.max(prev - 0.2, 0.5)), [])
   
   // 处理搜索
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     if (!searchTerm.trim() || !mindmapData) {
       setSearchResults([]);
       return;
@@ -54,26 +101,28 @@ function MindMapContent() {
     const results: any[] = [];
     
     const searchNode = (node: any) => {
-      if (node.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+      if (node?.title?.toLowerCase().includes(searchTerm.toLowerCase())) {
         results.push({
           id: node.id,
           title: node.title
         });
       }
       
-      if (node.children) {
+      if (node?.children) {
         node.children.forEach(searchNode);
       }
     };
     
-    searchNode(mindmapData[0]);
+    if (mindmapData && mindmapData[0]) {
+      searchNode(mindmapData[0]);
+    }
     setSearchResults(results);
-  };
+  }, [searchTerm, mindmapData]);
   
   // 高亮搜索结果节点
-  const handleHighlightNode = (nodeId: string) => {
+  const handleHighlightNode = useCallback((nodeId: string) => {
     router.push(`/mindmap?node=${nodeId}`);
-  };
+  }, [router]);
   
   if (loading) {
     return (
@@ -173,24 +222,22 @@ function MindMapContent() {
       )}
       
       {/* 思维导图区域 */}
-      <div className="flex-1 relative">
-        {mindmapData && (
-          <MindMap 
-            data={mindmapData[0]} 
-            highlightNodeId={highlightNodeId || undefined}
-            zoom={zoom}
-          />
+      <div className="flex-1 relative overflow-auto">
+        {mindmapData && mindmapData[0] && (
+          <SimpleMindMap data={mindmapData[0]} />
         )}
       </div>
     </div>
   )
 }
 
-// 主页面组件，使用Suspense包裹
+// 主页面组件，使用Suspense和错误边界包裹
 export default function MindMapPage() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-gray-900 text-white">加载中...</div>}>
-      <MindMapContent />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<div className="flex h-screen items-center justify-center bg-gray-900 text-white">加载中...</div>}>
+        <MindMapContent />
+      </Suspense>
+    </ErrorBoundary>
   )
 } 
