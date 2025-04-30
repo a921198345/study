@@ -1,4 +1,4 @@
-import { ZhipuAI } from '@/lib/zhipu-ai';
+import { DeepSeekAI } from './deepseek-ai';
 import { createClient } from '@supabase/supabase-js';
 
 // 改进Supabase初始化代码部分
@@ -111,6 +111,9 @@ const knowledgeBase: KnowledgeItem[] = [
   }
 ];
 
+// 初始化DeepSeekAI客户端
+const aiClient = new DeepSeekAI();
+
 /**
  * 简单的知识库搜索函数 - 仅作为示例实现
  * @param query 用户查询
@@ -218,30 +221,43 @@ export function getKnowledgeDetail(id: string): KnowledgeItem | undefined {
   return knowledgeBase.find(item => item.id === id);
 }
 
-// 搜索知识库 - 保留这个实现作为主要导出函数
+/**
+ * 根据用户查询搜索基础法律知识
+ * @param query 用户查询
+ * @returns 
+ */
 export async function searchKnowledge(query: string): Promise<string> {
-  // 检查查询是否为空
-  if (!query || query.trim() === '') {
-    return '请输入要查询的内容';
+  // 首先尝试使用缓存
+  const cachedResult = checkQuestionCache(query);
+  if (cachedResult) {
+    console.log('从缓存获取回答:', query);
+    return cachedResult;
   }
 
   try {
-    // 尝试使用智谱AI进行知识检索
-    const zhipuAI = new ZhipuAI();
-    try {
-      const result = await zhipuAI.searchKnowledge(query);
-      return formatResponseText(result);
-    } catch (error) {
-      console.error('智谱AI知识检索失败:', error);
-      console.log('回退到本地知识库查询');
-      // 如果智谱AI失败，回退到本地知识库
-      const localResult = await searchKnowledgeSimple(query);
-      return formatResponseText(localResult);
-    }
+    // 尝试通过DeepSeek API进行知识检索
+    const answer = await aiClient.searchKnowledge(query);
+    
+    // 缓存结果
+    cacheQuestion(query, answer);
+    
+    return answer;
   } catch (error) {
-    console.error('知识检索过程中发生错误:', error);
-    // 若出现任何错误，也回退到简单搜索
-    return formatResponseText(await searchKnowledgeSimple(query));
+    console.error('AI知识检索失败，回退到本地搜索:', error);
+    
+    // 失败时回退到本地搜索
+    const searchResults = simpleKnowledgeSearch(query);
+    if (searchResults.length > 0) {
+      // 构建一个基于搜索结果的回答
+      const answer = formatSearchResults(searchResults);
+      
+      // 缓存结果
+      cacheQuestion(query, answer);
+      
+      return answer;
+    }
+    
+    return '抱歉，我没有找到与您问题相关的法律知识。请尝试更具体的法律问题。';
   }
 }
 
