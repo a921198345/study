@@ -1,0 +1,184 @@
+[
+  {
+    "id": "root",
+    "title": "民法典",
+    "level": 0,
+    "children": [
+      {
+        "id": "section1",
+        "title": "总则编",
+        "level": 1,
+        "children": [
+          {
+            "id": "chapter1-1",
+            "title": "民事权利能力",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter1-2",
+            "title": "民事行为能力",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter1-3",
+            "title": "监护",
+            "level": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "section2",
+        "title": "物权编",
+        "level": 1,
+        "children": [
+          {
+            "id": "chapter2-1",
+            "title": "所有权",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter2-2",
+            "title": "用益物权",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter2-3",
+            "title": "担保物权",
+            "level": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "section3",
+        "title": "合同编",
+        "level": 1,
+        "children": [
+          {
+            "id": "chapter3-1",
+            "title": "合同订立",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter3-2",
+            "title": "合同效力",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter3-3",
+            "title": "合同履行",
+            "level": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "section4",
+        "title": "人格权编",
+        "level": 1,
+        "children": [
+          {
+            "id": "chapter4-1",
+            "title": "生命权、健康权和身体权",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter4-2",
+            "title": "姓名权和名称权",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter4-3",
+            "title": "肖像权",
+            "level": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "section5",
+        "title": "婚姻家庭编",
+        "level": 1,
+        "children": [
+          {
+            "id": "chapter5-1",
+            "title": "结婚",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter5-2",
+            "title": "离婚",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter5-3",
+            "title": "收养",
+            "level": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "section6",
+        "title": "继承编",
+        "level": 1,
+        "children": [
+          {
+            "id": "chapter6-1",
+            "title": "法定继承",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter6-2",
+            "title": "遗嘱继承",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter6-3",
+            "title": "遗产管理",
+            "level": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "section7",
+        "title": "侵权责任编",
+        "level": 1,
+        "children": [
+          {
+            "id": "chapter7-1",
+            "title": "侵权责任归责原则",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter7-2",
+            "title": "产品责任",
+            "level": 2,
+            "children": []
+          },
+          {
+            "id": "chapter7-3",
+            "title": "环境污染和生态破坏责任",
+            "level": 2,
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+] 
