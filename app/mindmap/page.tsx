@@ -9,7 +9,7 @@ import { SimpleMindMap } from '@/components/SimpleMindMap'
 // 错误边界组件
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
   const [hasError, setHasError] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<{ message?: string } | null>(null);
 
   // 在客户端捕获错误
   useEffect(() => {
