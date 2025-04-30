@@ -22,7 +22,8 @@ function MindMapContent() {
     async function fetchMindMapData() {
       try {
         setLoading(true)
-        const response = await fetch(`/api/mindmap-data`)
+        // 直接从静态JSON文件加载数据，避免通过API路由
+        const response = await fetch(`/data/opml/2025-04-28T11-12-33-489Z-__.json`)
         if (!response.ok) {
           throw new Error('思维导图数据加载失败')
         }
