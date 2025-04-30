@@ -48,10 +48,13 @@ async function parseOpml(filePath) {
         outline.outline = [outline.outline];
       }
       
+      // 提取节点标题，OPML文件中的标题是在text属性中
+      const title = outline.text || '';
+      
       const node = {
         id: Math.random().toString(36).substr(2, 9),
         level: level,
-        title: outline._text || outline.text || '',
+        title: title, // 使用提取的标题
         children: []
       };
       

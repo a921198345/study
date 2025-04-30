@@ -226,7 +226,7 @@ function MindMapContent() {
       {/* 思维导图区域 */}
       <div className="flex-1 relative overflow-auto">
         {mindmapData && mindmapData[0] && (
-          <SimpleMindMap data={mindmapData[0]} />
+          <SimpleMindMap data={mindmapData} />
         )}
       </div>
     </div>
