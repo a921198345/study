@@ -3,7 +3,8 @@
 import { useEffect, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ZoomIn, ZoomOut, ArrowLeft, Home, Search } from 'lucide-react'
-import Error from 'next/error'
+// 重命名导入的Next.js Error组件以避免冲突
+import NextError from 'next/error'
 import { SimpleMindMap } from '@/components/SimpleMindMap'
 
 // 错误边界组件
@@ -69,7 +70,8 @@ function MindMapContent() {
         
         if (!response.ok) {
           console.error('加载失败状态码:', response.status);
-          throw new Error(`思维导图数据加载失败: ${response.status} ${response.statusText}`)
+          // 使用全局Error构造函数，而不是Next.js的Error组件
+          throw new globalThis.Error(`思维导图数据加载失败: ${response.status} ${response.statusText}`)
         }
         
         console.log('JSON响应获取成功，开始解析...');
