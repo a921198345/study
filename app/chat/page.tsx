@@ -241,18 +241,15 @@ export default function ChatPage() {
   };
 
   const handleViewMindMap = (content: string) => {
-    // 指定民法思维导图的ID
-    const mindmapId = "1745821419752-03、2025民法客观题思维导图_共45页";
-    
     // 从AI回答中提取关键词
     const nodeIds = extractKeywordsClient(content);
     
     // 如果找到匹配的节点，跳转并高亮显示第一个
     if (nodeIds.length > 0) {
-      window.open(`/mindmap?id=${mindmapId}&node=${nodeIds[0]}`, '_blank');
+      window.open(`/mindmap?node=${nodeIds[0]}`, '_blank');
     } else {
       // 如果没找到匹配节点，直接跳转到思维导图
-      window.open(`/mindmap?id=${mindmapId}`, '_blank');
+      window.open(`/mindmap`, '_blank');
     }
   };
 

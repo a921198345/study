@@ -15,7 +15,6 @@ function MindMapContent() {
   
   const router = useRouter()
   const searchParams = useSearchParams()
-  const mindmapId = searchParams.get('id') || '1745821419752-03、2025民法客观题思维导图_共45页'
   const highlightNodeId = searchParams.get('node')
   
   // 获取思维导图数据
@@ -23,7 +22,7 @@ function MindMapContent() {
     async function fetchMindMapData() {
       try {
         setLoading(true)
-        const response = await fetch(`/api/mindmap-data?id=${mindmapId}`)
+        const response = await fetch(`/api/mindmap-data`)
         if (!response.ok) {
           throw new Error('思维导图数据加载失败')
         }
@@ -38,7 +37,7 @@ function MindMapContent() {
     }
     
     fetchMindMapData()
-  }, [mindmapId])
+  }, [])
   
   // 处理缩放
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 2))
@@ -72,7 +71,7 @@ function MindMapContent() {
   
   // 高亮搜索结果节点
   const handleHighlightNode = (nodeId: string) => {
-    router.push(`/mindmap?id=${mindmapId}&node=${nodeId}`);
+    router.push(`/mindmap?node=${nodeId}`);
   };
   
   if (loading) {

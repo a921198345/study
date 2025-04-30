@@ -62,7 +62,7 @@ export function extractKeywordsClient(text: string): string[] {
 export function getAvailableMindmapsClient() {
   return [
     {
-      id: '1745821419752-03、2025民法客观题思维导图_共45页',
+      id: 'minfa',
       title: '2025民法思维导图',
       subject: '民法',
       nodeCount: 2000,
