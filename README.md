@@ -910,3 +910,38 @@ ReactFlow的Node类型定义不支持直接在节点上设置onClick属性。正
 
 - 管理页面仅供开发者使用
 - 建议在生产环境中添加适当的访问控制措施 
+
+## 会话总结
+
+### 2024-05-01：新增思维导图管理功能
+
+#### 会话主要目的
+- 创建专门的开发者管理页面，用于管理OPML思维导图文件
+
+#### 完成的主要任务
+1. 创建了思维导图管理前端界面，支持文件上传、预览、设置活跃和删除操作
+2. 开发了四个相关API端点:
+   - `GET /api/admin/opml-files` - 获取所有思维导图文件列表
+   - `POST /api/admin/set-active` - 设置活跃文件
+   - `POST /api/admin/delete-file` - 删除指定文件
+   - `POST /api/admin/upload-opml` - 上传并转换OPML文件
+
+#### 关键决策和解决方案
+- 采用Antd组件库构建管理界面，提供美观的UI和良好的用户体验
+- 实现OPML到Mind-Elixir格式的转换逻辑，支持复杂思维导图结构
+- 使用配置文件存储活跃文件信息，便于系统读取默认显示的思维导图
+- 为各API接口添加完善的错误处理和安全检查
+
+#### 使用的技术栈
+- 前端: Next.js, React, Ant Design, TypeScript
+- 后端: Next.js API Routes, Node.js文件系统操作
+- 数据处理: xml2js (OPML解析库)
+
+#### 修改的文件
+- 创建: `app/admin/mindmap-management/page.tsx` - 管理界面
+- 创建: `app/api/admin/opml-files/route.ts` - 文件列表API
+- 创建: `app/api/admin/set-active/route.ts` - 设置活跃文件API
+- 创建: `app/api/admin/delete-file/route.ts` - 删除文件API
+- 创建: `app/api/admin/upload-opml/route.ts` - 上传文件API
+- 创建: `config/mindmap.json` - 配置文件
+- 更新: `README.md` - 添加文档说明 
