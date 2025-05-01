@@ -4,8 +4,14 @@ import fs from 'fs';
 import path from 'path';
 import xml2js from 'xml2js';
 
+// 定义MindElixir节点类型
+interface MindElixirNode {
+  topic: string;
+  children?: MindElixirNode[];
+}
+
 // 将OPML内容转换为Mind-Elixir格式
-async function convertOpmlToMindElixir(opmlContent: string) {
+async function convertOpmlToMindElixir(opmlContent: string): Promise<MindElixirNode> {
   try {
     // 解析OPML XML
     const parser = new xml2js.Parser({ explicitArray: false });
@@ -21,10 +27,10 @@ async function convertOpmlToMindElixir(opmlContent: string) {
       : result.opml.body.outline;
     
     // 递归将OPML的outline转换为Mind-Elixir的节点结构
-    function convertOutlineToNode(outline: any) {
+    function convertOutlineToNode(outline: any): MindElixirNode | null {
       if (!outline) return null;
       
-      const node: any = {
+      const node: MindElixirNode = {
         topic: outline.$.text || outline.$._text || '未命名节点',
       };
       
@@ -36,7 +42,7 @@ async function convertOpmlToMindElixir(opmlContent: string) {
         children.forEach((child: any) => {
           const childNode = convertOutlineToNode(child);
           if (childNode) {
-            node.children.push(childNode);
+            node.children!.push(childNode);
           }
         });
       }
@@ -45,7 +51,7 @@ async function convertOpmlToMindElixir(opmlContent: string) {
     }
     
     // 创建Mind-Elixir格式的数据
-    const mindElixirData = {
+    const mindElixirData: MindElixirNode = {
       // 使用OPML的根节点文本作为根节点
       topic: rootOutline.$.text || rootOutline.$._text || '思维导图',
       children: []
@@ -57,7 +63,7 @@ async function convertOpmlToMindElixir(opmlContent: string) {
       children.forEach((child: any) => {
         const childNode = convertOutlineToNode(child);
         if (childNode) {
-          mindElixirData.children.push(childNode);
+          mindElixirData.children!.push(childNode);
         }
       });
     }
