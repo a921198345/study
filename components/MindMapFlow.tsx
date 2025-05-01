@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, MouseEvent } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -183,7 +183,7 @@ export function MindMapFlow({ data }: MindMapFlowProps) {
   }, []);
 
   // 处理节点点击 - 折叠/展开
-  const handleNodeClick = (_, node: Node) => {
+  const handleNodeClick = (_: MouseEvent, node: Node) => {
     const nodeId = node.id;
     const newCollapsedNodes = new Set(collapsedNodes);
     
