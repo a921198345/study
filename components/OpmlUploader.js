@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import styles from '../styles/PdfUploader.module.css';
 
-export default function OpmlUploader() {
+export default function OpmlUploader({ onUploadResult }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -74,6 +74,11 @@ export default function OpmlUploader() {
       const processData = await processResponse.json();
       setResult(processData);
       setUploadProgress(100); // 处理完成
+      
+      // 如果提供了回调函数，则调用它
+      if (typeof onUploadResult === 'function') {
+        onUploadResult(processData);
+      }
     } catch (err) {
       console.error('上传或处理过程中出错:', err);
       setError(err.message || '上传或处理过程中出错');
