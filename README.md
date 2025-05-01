@@ -715,3 +715,29 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
 2. **依赖安装**：使用`npm install --include=dev`命令
 3. **构建命令**：使用`npm run build`命令
 4. **环境变量**：所有API密钥等敏感信息需在Vercel项目设置中配置 
+
+### 最新部署说明
+
+如果使用Vercel CLI部署遇到网络问题，可以通过以下替代方法部署：
+
+1. **使用Vercel Dashboard**:
+   - 访问 https://vercel.com
+   - 登录你的Vercel账号
+   - 点击"Import Project"
+   - 选择"Import Git Repository"
+   - 输入你的GitHub仓库URL: https://github.com/a921198345/study.git
+   - 点击"Import"
+   - 在项目设置中配置必要的环境变量
+   - 点击"Deploy"
+
+2. **本地构建后部署**:
+   - 运行 `npm run build`
+   - 将生成的`.next`目录和`public`目录压缩
+   - 通过Vercel仪表板上传压缩文件
+
+3. **使用GitHub集成**:
+   - 在Vercel仪表板中连接GitHub账号
+   - 选择仓库并自动部署
+   - 每次推送到master分支时自动触发部署
+
+配置完成后，Vercel将自动使用我们项目中的vercel.json、.nvmrc和.npmrc配置文件进行构建和部署。 
