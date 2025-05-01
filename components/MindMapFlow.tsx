@@ -183,7 +183,8 @@ export function MindMapFlow({ data }: MindMapFlowProps) {
   }, []);
 
   // 处理节点点击 - 折叠/展开
-  const handleNodeClick = (nodeId: string) => {
+  const handleNodeClick = (_, node: Node) => {
+    const nodeId = node.id;
     const newCollapsedNodes = new Set(collapsedNodes);
     
     if (newCollapsedNodes.has(nodeId)) {
@@ -288,9 +289,7 @@ export function MindMapFlow({ data }: MindMapFlowProps) {
           collapsed: isCollapsed,
         },
         position: { x: xPosition, y: yPosition },
-        style: { width: 'auto', minWidth: 100 },
-        // 添加点击事件处理
-        onClick: () => handleNodeClick(nodeId),
+        style: { width: 'auto', minWidth: 100 }
       };
       
       allNodes.push(newNode);
@@ -373,6 +372,7 @@ export function MindMapFlow({ data }: MindMapFlowProps) {
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         onInit={onInit}
+        onNodeClick={handleNodeClick}
         fitView
         minZoom={0.1}
         maxZoom={2}
