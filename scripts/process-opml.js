@@ -22,7 +22,8 @@ if (!fs.existsSync(LOG_DIR)) {
 function log(message) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}`;
-  console.log(logMessage);
+  // 使用console.error输出到stderr，避免污染stdout的JSON输出
+  console.error(logMessage);
   fs.appendFileSync(LOG_FILE, logMessage + '\n');
 }
 
@@ -214,9 +215,12 @@ async function main() {
     const result = await processOpml(filePath);
     
     if (result.success) {
-      console.log(JSON.stringify(result, null, 2));
+      // 确保只输出纯JSON，不包含任何其他日志
+      // 使用process.stdout.write而不是console.log避免额外的换行
+      process.stdout.write(JSON.stringify(result));
       process.exit(0);
     } else {
+      // 错误信息输出到stderr而不是stdout
       console.error(result.error);
       process.exit(1);
     }

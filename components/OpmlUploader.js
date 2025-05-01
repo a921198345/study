@@ -66,12 +66,27 @@ export default function OpmlUploader({ onUploadResult }) {
         body: JSON.stringify({ filePath: uploadData.filePath }),
       });
 
-      if (!processResponse.ok) {
-        const errorData = await processResponse.json();
-        throw new Error(errorData.error || '处理失败');
+      // 尝试获取响应内容，无论是否成功
+      let processData;
+      try {
+        processData = await processResponse.json();
+      } catch (jsonErr) {
+        throw new Error('无法解析处理结果：服务器响应格式错误');
       }
 
-      const processData = await processResponse.json();
+      // 检查响应状态
+      if (!processResponse.ok) {
+        const errorMessage = processData.error || 
+                             processData.details || 
+                             `处理失败 (${processResponse.status})`;
+                             
+        if (processData.stdout) {
+          console.error('服务器输出:', processData.stdout);
+        }
+        
+        throw new Error(errorMessage);
+      }
+
       setResult(processData);
       setUploadProgress(100); // 处理完成
       
@@ -137,7 +152,22 @@ export default function OpmlUploader({ onUploadResult }) {
           </div>
         )}
         
-        {error && <div className={styles.error}>{error}</div>}
+        {error && (
+          <div className={styles.error}>
+            <p><strong>错误：</strong> {error}</p>
+            {error.includes('处理结果') && (
+              <div className="mt-2 text-sm">
+                <p>建议尝试：</p>
+                <ul className="list-disc pl-5 mt-1">
+                  <li>确认上传的是有效的OPML格式文件</li>
+                  <li>检查OPML文件的编码是否为UTF-8</li>
+                  <li>尝试使用其他思维导图软件导出OPML文件</li>
+                  <li>如果问题持续存在，请联系管理员</li>
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
       {result && (
