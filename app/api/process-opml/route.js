@@ -80,7 +80,9 @@ export async function POST(request) {
       maxBuffer: 1024 * 1024 * 5 // 5MB buffer
     });
     
-    if (stderr) {
+    // 忽略stderr中的日志信息，除非是明确的错误
+    // 如果stderr包含错误关键词或空stdout才视为错误
+    if (stderr && (stderr.includes('Error:') || stderr.includes('错误:') || !stdout.trim())) {
       console.error('处理OPML出错:', stderr);
       return NextResponse.json(
         { error: '处理OPML文件时出错: ' + stderr },

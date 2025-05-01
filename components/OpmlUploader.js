@@ -96,10 +96,46 @@ export default function OpmlUploader({ onUploadResult }) {
       }
     } catch (err) {
       console.error('上传或处理过程中出错:', err);
+      // 检查错误信息是否包含日志输出 (这通常表示服务器端有日志但处理成功)
+      if (err.message && err.message.includes('[') && err.message.includes('节点')) {
+        // 可能是日志被误认为错误，尝试重新加载
+        setError('处理过程中产生了日志信息，正在尝试重新获取结果...');
+        
+        // 等待短暂时间后重试获取结果
+        setTimeout(async () => {
+          try {
+            // 假设文件已经被处理，尝试获取结果
+            const retryPath = uploadData.filePath.replace('/opml/', '/json/').replace('.opml', '.json');
+            const retryResponse = await fetch(`/api/get-json-result?path=${encodeURIComponent(retryPath)}`);
+            
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              setResult(retryData);
+              setUploadProgress(100);
+              setError(null);
+              
+              // 如果提供了回调函数，则调用它
+              if (typeof onUploadResult === 'function') {
+                onUploadResult(retryData);
+              }
+            } else {
+              setError('尝试重新获取结果失败，请重试上传');
+            }
+          } catch (retryErr) {
+            setError(`处理可能已成功，但获取结果失败: ${retryErr.message}`);
+          } finally {
+            setUploading(false);
+          }
+        }, 2000);
+        return;
+      }
+      
       setError(err.message || '上传或处理过程中出错');
       setUploadProgress(0);
     } finally {
-      setUploading(false);
+      if (!err || !err.message || !(err.message.includes('[') && err.message.includes('节点'))) {
+        setUploading(false);
+      }
     }
   };
 
