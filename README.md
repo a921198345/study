@@ -741,3 +741,23 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
    - 每次推送到master分支时自动触发部署
 
 配置完成后，Vercel将自动使用我们项目中的vercel.json、.nvmrc和.npmrc配置文件进行构建和部署。 
+
+### 2025-05-06（当前日期）
+- **会话主要目的**：修复Vercel部署中的.npmrc配置错误
+- **完成的主要任务**：
+  - 修复了.npmrc文件中不支持的配置项
+  - 移除了use-node-version设置
+  - 保留了engine-strict和node-version配置
+  - 重新提交代码到GitHub仓库
+- **关键决策和解决方案**：
+  - 根据Vercel构建日志分析错误原因
+  - 保留package.json中的engines配置作为指定Node版本的方式
+  - 简化.npmrc文件，只保留Vercel支持的配置项
+  - 通过git提交变更并推送到远程仓库
+- **技术栈**：Node.js, npm, Git, Vercel
+- **修改文件**：
+  - .npmrc（更新）
+  - README.md（更新）
+
+### 注意事项
+根据Vercel的最佳实践，指定Node.js版本应该使用package.json中的engines字段，而不是在.npmrc中使用use-node-version。这样可以确保在Vercel平台上正确识别和使用所需的Node.js版本。 
