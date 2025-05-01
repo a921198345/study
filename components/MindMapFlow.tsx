@@ -21,7 +21,7 @@ type NodeData = {
   id: string | number;
   title: string;
   level?: number;
-  parentId?: number | null;
+  parentId?: string | number | null;
   children?: NodeData[] | (string | number)[];
 };
 
