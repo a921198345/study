@@ -11,7 +11,9 @@ import ReactFlow, {
   Edge,
   Position,
   Panel,
-  ControlButton
+  ControlButton,
+  OnInit,
+  NodeMouseHandler
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { ZoomIn, ZoomOut, Plus, Minus, Expand, Maximize, Minimize } from 'lucide-react';
@@ -25,12 +27,20 @@ type NodeData = {
   children?: NodeData[] | (string | number)[];
 };
 
+// 自定义节点的数据类型
+interface CustomNodeData {
+  label: string;
+  level: number;
+  childCount: number;
+  collapsed: boolean;
+}
+
 interface MindMapFlowProps {
   data: NodeData | NodeData[];
 }
 
 // 自定义节点组件 - 根节点
-const RootNode = ({ data }: { data: any }) => {
+const RootNode = ({ data }: { data: CustomNodeData }) => {
   return (
     <div className="px-4 py-2 shadow-lg rounded-lg bg-blue-500 text-white border-2 border-blue-700 min-w-[180px] text-center">
       <div className="font-bold">{data.label}</div>
@@ -40,7 +50,7 @@ const RootNode = ({ data }: { data: any }) => {
 };
 
 // 主题节点 - 一级主题
-const TopicNode = ({ data }: { data: any }) => {
+const TopicNode = ({ data }: { data: CustomNodeData }) => {
   return (
     <div className="px-4 py-2 shadow-lg rounded-lg bg-red-500 text-white border-2 border-red-700 min-w-[160px] text-center">
       <div>{data.label}</div>
@@ -50,7 +60,7 @@ const TopicNode = ({ data }: { data: any }) => {
 };
 
 // 子主题节点 - 二级及以下主题
-const SubtopicNode = ({ data }: { data: any }) => {
+const SubtopicNode = ({ data }: { data: CustomNodeData }) => {
   return (
     <div className="px-3 py-1 shadow-md rounded-lg bg-green-500 text-white border-2 border-green-700 min-w-[140px] text-center">
       <div>{data.label}</div>
@@ -60,7 +70,7 @@ const SubtopicNode = ({ data }: { data: any }) => {
 };
 
 // 叶子节点 - 最底层主题
-const LeafNode = ({ data }: { data: any }) => {
+const LeafNode = ({ data }: { data: CustomNodeData }) => {
   return (
     <div className="px-2 py-1 shadow-sm rounded-lg bg-amber-500 text-white border-2 border-amber-700 min-w-[120px] text-center">
       <div className="text-sm">{data.label}</div>
@@ -77,7 +87,7 @@ const nodeTypes = {
 };
 
 // 根据层级获取节点类型
-const getNodeTypeByLevel = (level: number) => {
+const getNodeTypeByLevel = (level: number): string => {
   if (level === 0) return 'root';
   if (level === 1) return 'topic';
   if (level === 2) return 'subtopic';
@@ -183,7 +193,7 @@ export function MindMapFlow({ data }: MindMapFlowProps) {
   }, []);
 
   // 处理节点点击 - 折叠/展开
-  const handleNodeClick = (_: MouseEvent, node: Node) => {
+  const handleNodeClick: NodeMouseHandler = (event: React.MouseEvent, node: Node) => {
     const nodeId = node.id;
     const newCollapsedNodes = new Set(collapsedNodes);
     
@@ -353,7 +363,7 @@ export function MindMapFlow({ data }: MindMapFlowProps) {
     processData(originalData, collapsible);
   };
   
-  const onInit = (instance: any) => {
+  const onInit: OnInit = (instance) => {
     setReactFlowInstance(instance);
     setTimeout(() => {
       // 延迟执行以确保节点已渲染
