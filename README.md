@@ -781,3 +781,23 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
 
 ### 类型错误修复说明
 在ReactFlow组件中，节点ID和父节点ID可能是字符串或数字类型。通过将NodeData接口中的parentId类型从`number | null`扩展为`string | number | null`，我们解决了类型兼容性问题，使代码能够正确处理不同格式的ID值，保证了在Vercel构建环境中的类型安全。 
+
+### 2025-05-08（当前日期）
+- **会话主要目的**：修复ReactFlow组件中的Node类型错误
+- **完成的主要任务**：
+  - 修复了MindMapFlow组件中Node类型定义的不兼容问题
+  - 将节点的onClick属性移除，改用ReactFlow提供的onNodeClick事件
+  - 更新了handleNodeClick函数签名，接收Node对象参数
+  - 确保TypeScript类型检查能够通过
+- **关键决策和解决方案**：
+  - 根据ReactFlow的API文档和类型定义，正确地实现了节点点击处理
+  - 将单个节点的事件处理改为全局事件处理，符合React Flow的设计模式
+  - 保持原有的折叠/展开功能不变，只修改了实现方式
+  - 通过git提交变更并推送到远程仓库
+- **技术栈**：TypeScript, React, ReactFlow, Git
+- **修改文件**：
+  - components/MindMapFlow.tsx（更新）
+  - README.md（更新）
+
+### 事件处理修复说明
+ReactFlow的Node类型定义不支持直接在节点上设置onClick属性。正确的做法是使用ReactFlow组件的全局onNodeClick事件处理器。这次修复确保了代码符合ReactFlow的API设计，同时保持了原有的节点折叠/展开功能。 
