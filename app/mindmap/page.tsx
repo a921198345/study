@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ZoomIn, ZoomOut, ArrowLeft, Home, Search } from 'lucide-react'
 // 重命名导入的Next.js Error组件以避免冲突
 import NextError from 'next/error'
-import { SimpleMindMap } from '@/components/SimpleMindMap'
+import { MindMapFlow } from '@/components/MindMapFlow'
 
 // 错误边界组件
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
@@ -233,7 +233,7 @@ function MindMapContent() {
       {/* 思维导图区域 */}
       <div className="flex-1 relative overflow-auto">
         {mindmapData && mindmapData[0] && (
-          <SimpleMindMap data={mindmapData} />
+          <MindMapFlow data={mindmapData} />
         )}
       </div>
     </div>
