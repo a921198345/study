@@ -683,3 +683,35 @@ Vercel会自动识别Next.js项目并应用最佳配置。所有环境变量都�
   - app/test-mindmap/page.tsx（新增）
   - app/mindmap/page.tsx（更新）
   - public/data/test-mindmap.json（新增） 
+
+### 2025-05-05（当前日期）
+- **会话主要目的**：解决Vercel部署中ReactFlow依赖问题
+- **完成的主要任务**：
+  - 创建vercel.json配置文件，指定正确的安装和构建命令
+  - 添加Node.js版本配置，确保环境一致性
+  - 优化package.json配置，添加engines字段
+  - 创建.npmrc和.nvmrc文件指定Node.js版本
+- **关键决策和解决方案**：
+  - 分析构建日志，确定问题出在依赖安装阶段
+  - 配置vercel.json使用npm而非pnpm进行安装和构建
+  - 设置Node.js 20版本环境，确保兼容性
+  - 添加legacy-peer-deps配置解决依赖冲突
+- **技术栈**：Vercel, Node.js, npm, Git
+- **修改文件**：
+  - vercel.json（新增）
+  - .nvmrc（新增）
+  - .npmrc（新增）
+  - package.json（更新）
+  - README.md（更新）
+
+### 部署信息
+- 部署平台：Vercel
+- 部署命令：`vercel --prod`
+- 当前状态：构建成功，应用正常运行
+- 部署URL：https://study-q805souwz-cuiges-projects.vercel.app
+
+### 重要配置说明
+1. **Node.js版本**：项目需要Node.js 20+版本
+2. **依赖安装**：使用`npm install --include=dev`命令
+3. **构建命令**：使用`npm run build`命令
+4. **环境变量**：所有API密钥等敏感信息需在Vercel项目设置中配置 
