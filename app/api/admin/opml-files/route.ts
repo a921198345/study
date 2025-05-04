@@ -2,141 +2,80 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// 获取当前活跃文件
-function getActiveFile(): string {
+// 从配置文件读取文件列表
+function getFileListFromConfig(): any {
   try {
-    const configPath = path.join(process.cwd(), 'config', 'mindmap.json');
+    const configPath = path.join(process.cwd(), 'public', 'data', 'mindmap-files.json');
     
     // 检查配置文件是否存在
     if (!fs.existsSync(configPath)) {
-      // 如果不存在，创建默认配置
-      if (!fs.existsSync(path.dirname(configPath))) {
-        fs.mkdirSync(path.dirname(configPath), { recursive: true });
-      }
-      fs.writeFileSync(configPath, JSON.stringify({ activeFile: '' }, null, 2));
-      return '';
+      console.log('配置文件不存在，返回空列表');
+      return { files: [], activeFileId: '' };
     }
 
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    return config.activeFile || '';
+    const configData = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(configData);
+    return config;
   } catch (error) {
     console.error('读取配置文件失败:', error);
-    return '';
+    return { files: [], activeFileId: '' };
   }
 }
 
-// 计算JSON文件中节点数量
-function getNodeCount(filePath: string): number {
-  try {
-    if (!fs.existsSync(filePath)) {
-      console.log(`文件不存在: ${filePath}`);
-      return 0;
-    }
-    
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(content);
-    
-    // 递归计算节点数量
-    const countNodes = (node: any): number => {
-      if (!node) return 0;
-      
-      let count = 1; // 当前节点
-      
-      // 计算子节点
-      if (node.children && Array.isArray(node.children)) {
-        node.children.forEach((child: any) => {
-          count += countNodes(child);
-        });
-      }
-      
-      return count;
-    };
-    
-    return countNodes(data);
-  } catch (error) {
-    console.error(`计算文件 ${filePath} 节点数量失败:`, error);
-    return 0;
-  }
-}
-
-// 如果是Vercel环境，默认提供一些示例文件
+// 获取默认文件列表（用于配置丢失或其他特殊情况）
 function getDefaultFiles() {
   return [
     {
       id: 'simple-mindmap.json',
       name: 'simple-mindmap',
-      uploadDate: '2018-10-20T01:46:40.000Z',
-      nodeCount: 1,
+      uploadDate: '2023-10-13T01:46:40.000Z',
+      nodesCount: 15,
       isActive: true
     },
     {
       id: '2025-04-28T11-12-33-489Z-__.json',
       name: '2025-04-28T11-12-33-489Z-__',
-      uploadDate: '2018-10-20T01:46:40.000Z',
-      nodeCount: 1,
+      uploadDate: '2023-10-13T01:48:40.000Z',
+      nodesCount: 21,
       isActive: false
     }
   ];
 }
 
 export async function GET() {
-  console.log('获取OPML文件列表');
-  
-  let dataDir;
-  
-  // 在Vercel环境中无法动态写入文件，所以返回默认文件列表
-  if (process.env.VERCEL) {
-    console.log('在Vercel环境中，返回默认文件列表');
-    return NextResponse.json({ files: getDefaultFiles() });
-  } else {
-    dataDir = path.join(process.cwd(), 'public', 'data');
-  }
-  
-  // 确保数据目录存在
-  if (!fs.existsSync(dataDir)) {
-    console.log(`创建数据目录: ${dataDir}`);
-    fs.mkdirSync(dataDir, { recursive: true });
-    return NextResponse.json({ files: [] });
-  }
-  
-  const activeFile = getActiveFile();
-  console.log(`当前活跃文件: ${activeFile}`);
+  console.log('获取思维导图文件列表');
   
   try {
-    // 读取目录下的所有JSON文件（排除测试文件）
-    console.log(`从目录 ${dataDir} 读取文件`);
-    const files = fs.readdirSync(dataDir)
-      .filter(file => file.endsWith('.json') && !file.startsWith('test-'))
-      .map(file => {
-        const filePath = path.join(dataDir, file);
-        const stats = fs.statSync(filePath);
-        
-        const id = file;
-        const name = file.replace('.json', '');
-        const uploadDate = stats.mtime.toISOString();
-        const nodeCount = getNodeCount(filePath);
-        const isActive = id === activeFile;
-        
-        return {
-          id,
-          name,
-          uploadDate,
-          nodeCount,
-          isActive
-        };
+    // 从配置文件获取文件列表
+    const { files, activeFileId } = getFileListFromConfig();
+    
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      console.log('配置中未找到文件，返回默认文件列表');
+      const defaultFiles = getDefaultFiles();
+      return NextResponse.json({ 
+        files: defaultFiles,
+        message: '使用默认文件列表 - 未找到已上传文件'
       });
+    }
+    
+    // 添加isActive标记到每个文件
+    const filesWithActiveFlag = files.map(file => ({
+      ...file,
+      isActive: file.id === activeFileId
+    }));
     
     // 按上传日期降序排序
-    files.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+    filesWithActiveFlag.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
     
-    console.log(`找到 ${files.length} 个文件`);
-    return NextResponse.json({ files });
+    console.log(`找到 ${filesWithActiveFlag.length} 个文件`);
+    return NextResponse.json({ files: filesWithActiveFlag });
   } catch (error) {
     console.error('获取文件列表失败:', error);
-    // 发生错误时，也返回默认文件列表
+    // 发生错误时返回默认文件列表
     return NextResponse.json({ 
       files: getDefaultFiles(),
-      error: '获取文件列表失败，显示默认文件'
+      error: '获取文件列表失败，显示默认文件',
+      details: (error as Error).message
     });
   }
 } 

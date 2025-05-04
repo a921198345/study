@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, readFile } from 'fs/promises';
 import fs from 'fs';
 import path from 'path';
 import xml2js from 'xml2js';
@@ -8,6 +8,22 @@ import xml2js from 'xml2js';
 interface MindElixirNode {
   topic: string;
   children?: MindElixirNode[];
+}
+
+// 文件信息结构
+interface FileInfo {
+  id: string;
+  name: string;
+  uploadDate: string;
+  nodesCount?: number;
+  path?: string;
+}
+
+// 文件列表配置
+interface FileListConfig {
+  files: FileInfo[];
+  activeFileId: string;
+  lastUpdated: string;
 }
 
 // 将OPML内容转换为Mind-Elixir格式
@@ -75,6 +91,72 @@ async function convertOpmlToMindElixir(opmlContent: string): Promise<MindElixirN
   }
 }
 
+// 计算节点总数
+function countNodes(node: MindElixirNode): number {
+  let count = 1; // 当前节点
+  
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(child => {
+      count += countNodes(child);
+    });
+  }
+  
+  return count;
+}
+
+// 更新文件列表配置
+async function updateFileListConfig(fileInfo: FileInfo, makeActive: boolean = false) {
+  // 配置文件路径
+  const configPath = path.join(process.cwd(), 'public', 'data', 'mindmap-files.json');
+  
+  let config: FileListConfig;
+  
+  // 尝试读取现有配置
+  try {
+    if (fs.existsSync(configPath)) {
+      const configData = await readFile(configPath, 'utf8');
+      config = JSON.parse(configData);
+    } else {
+      // 创建新配置
+      config = {
+        files: [],
+        activeFileId: '',
+        lastUpdated: new Date().toISOString()
+      };
+    }
+  } catch (err) {
+    console.error('读取配置文件失败，创建新配置:', err);
+    config = {
+      files: [],
+      activeFileId: '',
+      lastUpdated: new Date().toISOString()
+    };
+  }
+  
+  // 添加新文件信息
+  config.files = config.files.filter(file => file.id !== fileInfo.id); // 移除相同ID的文件
+  config.files.push(fileInfo); // 添加新文件
+  
+  // 如果需要设置为活跃文件，或者这是第一个文件
+  if (makeActive || config.files.length === 1) {
+    config.activeFileId = fileInfo.id;
+    
+    // 同时更新active-mindmap.json
+    const activePath = path.join(process.cwd(), 'public', 'data', 'active-mindmap.json');
+    await writeFile(activePath, JSON.stringify({
+      activePath: `/data/${fileInfo.id}`,
+      lastUpdated: new Date().toISOString()
+    }, null, 2), 'utf8');
+  }
+  
+  config.lastUpdated = new Date().toISOString();
+  
+  // 保存配置
+  await writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
+  
+  return config;
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('开始处理OPML上传请求');
@@ -116,31 +198,20 @@ export async function POST(request: NextRequest) {
     const opmlFileName = `${timestamp}-${file.name}`;
     const jsonFileName = opmlFileName.replace('.opml', '.json');
     
-    // 确保目录存在 - 在Vercel环境中修改
-    let opmlDir, dataDir;
-    
-    if (process.env.VERCEL) {
-      // 在Vercel环境中，使用/tmp目录
-      console.log('检测到Vercel环境，使用/tmp目录');
-      opmlDir = path.join('/tmp', 'opml');
-      dataDir = path.join('/tmp', 'data');
-    } else {
-      // 本地开发环境
-      console.log('本地开发环境，使用public目录');
-      opmlDir = path.join(process.cwd(), 'public', 'data', 'opml');
-      dataDir = path.join(process.cwd(), 'public', 'data');
-    }
+    // 确保目录存在
+    const publicDataDir = path.join(process.cwd(), 'public', 'data');
+    const opmlDir = path.join(publicDataDir, 'opml');
     
     try {
       // 创建目录
+      if (!fs.existsSync(publicDataDir)) {
+        console.log(`创建目录: ${publicDataDir}`);
+        await mkdir(publicDataDir, { recursive: true });
+      }
+      
       if (!fs.existsSync(opmlDir)) {
         console.log(`创建目录: ${opmlDir}`);
         await mkdir(opmlDir, { recursive: true });
-      }
-      
-      if (!fs.existsSync(dataDir)) {
-        console.log(`创建目录: ${dataDir}`);
-        await mkdir(dataDir, { recursive: true });
       }
     } catch (dirError) {
       console.error('创建目录失败:', dirError);
@@ -164,26 +235,33 @@ export async function POST(request: NextRequest) {
       const mindElixirData = await convertOpmlToMindElixir(opmlContent);
       console.log('OPML转换成功');
       
+      // 计算节点数量
+      const nodesCount = countNodes(mindElixirData);
+      console.log(`思维导图共有 ${nodesCount} 个节点`);
+      
       // 保存转换后的JSON文件
-      const jsonPath = path.join(dataDir, jsonFileName);
+      const jsonPath = path.join(publicDataDir, jsonFileName);
       console.log(`保存JSON文件到: ${jsonPath}`);
       await writeFile(jsonPath, JSON.stringify(mindElixirData, null, 2), 'utf-8');
       console.log('JSON文件保存成功');
       
-      if (process.env.VERCEL) {
-        // 如果在Vercel环境中，需要将文件复制到public目录
-        // 但Vercel不允许在runtime写入public目录，这里只记录日志
-        console.log('注意：在Vercel环境中，文件已保存到/tmp目录，但无法写入public目录');
-      }
+      // 创建文件信息
+      const fileInfo: FileInfo = {
+        id: jsonFileName,
+        name: file.name.replace('.opml', ''),
+        uploadDate: new Date().toISOString(),
+        nodesCount: nodesCount,
+        path: `/data/${jsonFileName}`
+      };
+      
+      // 更新文件列表配置
+      await updateFileListConfig(fileInfo, true);
+      console.log('文件信息已添加到配置');
       
       return NextResponse.json({
         success: true,
         message: '文件上传并转换成功',
-        file: {
-          id: jsonFileName,
-          name: file.name.replace('.opml', ''),
-          uploadDate: new Date().toISOString()
-        }
+        file: fileInfo
       });
     } catch (fileError) {
       console.error('文件操作失败:', fileError);

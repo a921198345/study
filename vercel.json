@@ -1,21 +1,22 @@
 {
   "version": 2,
-  "framework": "nextjs",
-  "regions": ["iad1"],
-  "builds": [
+  "github": {
+    "enabled": true,
+    "silent": true
+  },
+  "buildCommand": "npm run build",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
     {
-      "src": "package.json",
-      "use": "@vercel/next",
-      "config": {
-        "installCommand": "npm install --include=dev",
-        "buildCommand": "npm run build"
-      }
-    }
-  ],
-  "routes": [
+      "source": "https://study-cuiges-projects.vercel.app/(.*)",
+      "destination": "https://study-sage-chi.vercel.app/$1",
+      "permanent": true
+    },
     {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "https://study-rabx98gev-cuiges-projects.vercel.app/(.*)",
+      "destination": "https://study-sage-chi.vercel.app/$1",
+      "permanent": true
     }
   ]
 }

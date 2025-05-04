@@ -2,22 +2,55 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// 获取当前活跃文件
-function getActiveFile(): string {
+// 从配置获取当前活跃文件ID
+function getActiveFileIdFromConfig(): string {
   try {
     console.log('获取当前活跃文件');
-    const configPath = path.join(process.cwd(), 'config', 'mindmap.json');
+    const configPath = path.join(process.cwd(), 'public', 'data', 'mindmap-files.json');
+    
     if (!fs.existsSync(configPath)) {
       console.log('配置文件不存在');
       return '';
     }
     
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    console.log(`当前活跃文件: ${config.activeFile || '无'}`);
-    return config.activeFile || '';
+    const configData = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(configData);
+    
+    console.log(`当前活跃文件ID: ${config.activeFileId || '无'}`);
+    return config.activeFileId || '';
   } catch (error) {
     console.error('读取配置文件失败:', error);
     return '';
+  }
+}
+
+// 从配置文件中删除文件信息
+async function removeFileFromConfig(fileId: string): Promise<boolean> {
+  try {
+    console.log(`从配置中删除文件: ${fileId}`);
+    const configPath = path.join(process.cwd(), 'public', 'data', 'mindmap-files.json');
+    
+    if (!fs.existsSync(configPath)) {
+      console.error('配置文件不存在');
+      return false;
+    }
+    
+    // 读取当前配置
+    const configData = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(configData);
+    
+    // 移除指定文件
+    config.files = config.files.filter((file: any) => file.id !== fileId);
+    config.lastUpdated = new Date().toISOString();
+    
+    // 写入更新后的配置
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    console.log('配置文件更新成功');
+    
+    return true;
+  } catch (error) {
+    console.error('更新配置文件失败:', error);
+    return false;
   }
 }
 
@@ -39,23 +72,13 @@ export async function POST(request: NextRequest) {
     console.log(`请求删除文件: ${fileId}`);
     
     // 检查是否是活跃文件
-    const activeFile = getActiveFile();
-    if (fileId === activeFile) {
+    const activeFileId = getActiveFileIdFromConfig();
+    if (fileId === activeFileId) {
       console.error('尝试删除活跃文件');
       return NextResponse.json(
         { error: true, message: '不能删除当前活跃文件，请先设置其他文件为活跃文件' },
         { status: 400 }
       );
-    }
-    
-    // 在Vercel环境中，模拟删除文件成功
-    if (process.env.VERCEL) {
-      console.log('在Vercel环境中，模拟删除文件成功');
-      return NextResponse.json({ 
-        success: true, 
-        message: '文件删除成功（Vercel环境模拟）',
-        vercel: true
-      });
     }
     
     // 检查文件是否存在
@@ -69,6 +92,16 @@ export async function POST(request: NextRequest) {
     }
     
     try {
+      // 从配置中删除文件信息
+      const configUpdated = await removeFileFromConfig(fileId);
+      if (!configUpdated) {
+        console.error('从配置中删除文件失败');
+        return NextResponse.json(
+          { error: true, message: '更新配置文件失败' },
+          { status: 500 }
+        );
+      }
+      
       // 删除文件
       console.log(`删除文件: ${filePath}`);
       fs.unlinkSync(filePath);
@@ -83,7 +116,8 @@ export async function POST(request: NextRequest) {
       console.log('文件删除成功');
       return NextResponse.json({ 
         success: true, 
-        message: '文件删除成功'
+        message: '文件删除成功',
+        fileId: fileId
       });
     } catch (deleteError) {
       console.error('删除文件失败:', deleteError);

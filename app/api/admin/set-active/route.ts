@@ -2,38 +2,52 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// 更新活跃文件
+// 更新活跃文件配置
 async function updateActiveFile(fileId: string) {
   try {
     console.log(`尝试设置活跃文件: ${fileId}`);
-    const configDir = path.join(process.cwd(), 'config');
-    const configPath = path.join(configDir, 'mindmap.json');
     
-    // 确保配置目录存在
-    if (!fs.existsSync(configDir)) {
-      console.log(`创建配置目录: ${configDir}`);
-      fs.mkdirSync(configDir, { recursive: true });
+    // 更新mindmap-files.json配置
+    const configPath = path.join(process.cwd(), 'public', 'data', 'mindmap-files.json');
+    
+    if (!fs.existsSync(configPath)) {
+      console.error('配置文件不存在');
+      return false;
     }
     
-    // 读取当前配置或创建新配置
-    let config = { activeFile: '' };
-    if (fs.existsSync(configPath)) {
-      try {
-        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        console.log(`读取现有配置: ${JSON.stringify(config)}`);
-      } catch (error) {
-        console.error('读取配置文件失败:', error);
+    try {
+      // 读取当前配置
+      const configData = fs.readFileSync(configPath, 'utf-8');
+      const config = JSON.parse(configData);
+      
+      // 检查文件是否在列表中
+      const fileExists = config.files.some((file: any) => file.id === fileId);
+      if (!fileExists) {
+        console.error(`文件ID ${fileId} 不在配置列表中`);
+        return false;
       }
+      
+      // 更新活跃文件ID
+      config.activeFileId = fileId;
+      config.lastUpdated = new Date().toISOString();
+      
+      // 写入更新后的配置
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+      console.log('mindmap-files.json配置更新成功');
+      
+      // 同时更新active-mindmap.json配置
+      const activePath = path.join(process.cwd(), 'public', 'data', 'active-mindmap.json');
+      fs.writeFileSync(activePath, JSON.stringify({
+        activePath: `/data/${fileId}`,
+        lastUpdated: new Date().toISOString()
+      }, null, 2), 'utf-8');
+      console.log('active-mindmap.json配置更新成功');
+      
+      return true;
+    } catch (error) {
+      console.error('读取或写入配置文件失败:', error);
+      return false;
     }
-    
-    // 更新活跃文件配置
-    config.activeFile = fileId;
-    
-    // 写入配置文件
-    console.log(`更新配置: ${JSON.stringify(config)}`);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-    console.log('配置文件更新成功');
-    return true;
   } catch (error) {
     console.error('更新活跃文件失败:', error);
     return false;
@@ -56,16 +70,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 在Vercel环境中，直接返回成功，无需实际写入文件
-    if (process.env.VERCEL) {
-      console.log('在Vercel环境中，模拟成功设置活跃文件');
-      return NextResponse.json({ 
-        success: true, 
-        message: '活跃文件已更新（Vercel环境模拟）',
-        vercel: true
-      });
-    }
-    
     // 检查文件是否存在
     const filePath = path.join(process.cwd(), 'public', 'data', fileId);
     if (!fs.existsSync(filePath)) {
@@ -86,7 +90,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    return NextResponse.json({ success: true, message: '活跃文件已更新' });
+    return NextResponse.json({ 
+      success: true, 
+      message: '活跃文件已更新',
+      fileId: fileId
+    });
   } catch (error) {
     console.error('设置活跃文件失败:', error);
     return NextResponse.json(

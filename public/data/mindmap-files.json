@@ -1,0 +1,13 @@
+{
+  "files": [
+    {
+      "id": "simple-mindmap.json",
+      "name": "思维导图示例",
+      "uploadDate": "2023-10-13T01:46:40.000Z",
+      "nodesCount": 15,
+      "path": "/data/simple-mindmap.json"
+    }
+  ],
+  "activeFileId": "simple-mindmap.json",
+  "lastUpdated": "2023-10-13T10:00:00.000Z"
+} 
