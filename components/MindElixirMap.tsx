@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react';
-import MindElixir from 'mind-elixir';
-import { Operation } from 'mind-elixir/dist/types/index.d';
+// 不使用dynamic import，改为在useEffect中手动导入
 
 // 定义节点数据结构
 interface MindNode {
@@ -82,59 +81,72 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mindElixirRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // 确保在客户端渲染
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    // 确保只在客户端执行
+    if (!isClient || !containerRef.current) return;
     
-    try {
-      // 清空容器内容，防止重复渲染
-      containerRef.current.innerHTML = '';
-      
-      // 准备数据
-      const mindData = convertOpmlToMindElixir(data);
-      
-      // 创建Mind Elixir实例
-      mindElixirRef.current = new MindElixir({
-        el: containerRef.current,
-        direction: direction === 'side' ? 2 : 1, // 1: 右侧布局, 2: 居中布局
-        data: {
-          nodeData: mindData
-        },
-        draggable: draggable,
-        contextMenu: contextMenu,
-        contextMenuOption: {
-          focus: contextMenu,
-          extension: contextMenu,
-          link: contextMenu,
-          note: contextMenu,
-        },
-        allowUndo: editable,
-        overflowHidden: false,
-        mainColor: getThemeColor(theme),
-        mainFontColor: '#fff',
-      });
-      
-      // 初始化思维导图
-      mindElixirRef.current.init();
-      
-      // 设置只读模式（如果不可编辑）
-      if (!editable) {
-        mindElixirRef.current.operation.readonly();
+    // 在客户端动态导入MindElixir
+    const loadMindElixir = async () => {
+      try {
+        // 清空容器内容，防止重复渲染
+        containerRef.current!.innerHTML = '';
+        
+        // 动态导入MindElixir
+        const MindElixirModule = (await import('mind-elixir')).default;
+        
+        // 准备数据
+        const mindData = convertOpmlToMindElixir(data);
+        
+        // 创建Mind Elixir实例，使用any类型绕过类型检查
+        const options: any = {
+          el: containerRef.current,
+          direction: direction === 'side' ? 2 : 1, // 1: 右侧布局, 2: 居中布局
+          data: {
+            nodeData: mindData
+          },
+          draggable: draggable,
+          contextMenu: contextMenu,
+          contextMenuOption: contextMenu ? {
+            focus: true,
+          } : undefined,
+          allowUndo: editable,
+          overflowHidden: false,
+          mainColor: getThemeColor(theme),
+          mainFontColor: '#fff',
+        };
+        
+        mindElixirRef.current = new MindElixirModule(options);
+        
+        // 初始化思维导图
+        mindElixirRef.current.init();
+        
+        // 设置只读模式（如果不可编辑）
+        if (!editable) {
+          mindElixirRef.current.operation.readonly();
+        }
+        
+        // 事件监听
+        mindElixirRef.current.bus.addListener('operation', (operation: any) => {
+          console.log('思维导图操作:', operation);
+        });
+        
+        mindElixirRef.current.bus.addListener('selectNode', (node: any) => {
+          console.log('节点选择:', node);
+        });
+      } catch (err) {
+        console.error('初始化思维导图出错:', err);
+        setError(`初始化思维导图失败: ${err instanceof Error ? err.message : '未知错误'}`);
       }
-      
-      // 事件监听
-      mindElixirRef.current.bus.addListener('operation', (operation: Operation) => {
-        console.log('思维导图操作:', operation);
-      });
-      
-      mindElixirRef.current.bus.addListener('selectNode', (node: any) => {
-        console.log('节点选择:', node);
-      });
-      
-    } catch (err) {
-      console.error('初始化思维导图出错:', err);
-      setError(`初始化思维导图失败: ${err instanceof Error ? err.message : '未知错误'}`);
-    }
+    };
+    
+    loadMindElixir();
     
     // 组件卸载时清理
     return () => {
@@ -143,7 +155,7 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         mindElixirRef.current.bus.removeAllListeners();
       }
     };
-  }, [data, direction, draggable, editable, contextMenu, theme]);
+  }, [data, direction, draggable, editable, contextMenu, theme, isClient]);
 
   // 获取主题颜色
   const getThemeColor = (themeName: string): string => {
@@ -154,6 +166,17 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
       default: return '#3498db';
     }
   };
+
+  // 如果不是客户端环境，显示加载状态或空白内容
+  if (!isClient) {
+    return (
+      <div className={`mind-elixir-container ${className}`} style={{ width, height }}>
+        <div className="flex items-center justify-center h-full">
+          <p>加载思维导图中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`mind-elixir-container ${className}`} style={{ width, height }}>
