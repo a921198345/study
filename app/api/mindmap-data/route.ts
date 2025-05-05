@@ -2,18 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// 默认思维导图数据，当文件不存在时返回
+// 默认思维导图数据，当文件不存在时返回 - 修改为与MindElixir兼容的格式
 const DEFAULT_MINDMAP_DATA = {
-  id: "root",
-  topic: "默认思维导图",
-  expanded: true,
-  children: [
-    {
-      id: "default-1",
-      topic: "请上传思维导图数据",
-      expanded: true
-    }
-  ]
+  nodeData: {
+    id: "root",
+    topic: "默认思维导图",
+    expanded: true,
+    children: [
+      {
+        id: "default-1",
+        topic: "请上传思维导图数据",
+        expanded: true
+      }
+    ]
+  }
 };
 
 // 验证思维导图数据是否有效
@@ -34,6 +36,24 @@ function validateMindMapData(data: any): boolean {
   }
   
   return true;
+}
+
+// 转换数据为MindElixir兼容格式
+function convertToMindElixirFormat(data: any): any {
+  // 如果数据已经是MindElixir格式，直接返回
+  if (data.nodeData && typeof data.nodeData === 'object') {
+    return data;
+  }
+  
+  // 如果数据是单节点格式
+  if (data.id && data.topic) {
+    return {
+      nodeData: data
+    };
+  }
+  
+  // 不支持的格式，返回默认数据
+  return DEFAULT_MINDMAP_DATA;
 }
 
 export async function GET(request: NextRequest) {
@@ -84,7 +104,8 @@ export async function GET(request: NextRequest) {
           const defaultData = JSON.parse(defaultContent);
           // 验证数据格式
           if (validateMindMapData(defaultData)) {
-            return NextResponse.json(defaultData);
+            // 返回转换后的MindElixir兼容格式
+            return NextResponse.json(convertToMindElixirFormat(defaultData));
           } else {
             console.warn('默认思维导图数据格式无效，使用内置数据');
             return NextResponse.json(DEFAULT_MINDMAP_DATA);
@@ -107,8 +128,8 @@ export async function GET(request: NextRequest) {
       
       // 验证数据格式
       if (validateMindMapData(mindmapData)) {
-        // 返回思维导图数据
-        return NextResponse.json(mindmapData);
+        // 返回转换后的MindElixir兼容格式
+        return NextResponse.json(convertToMindElixirFormat(mindmapData));
       } else {
         console.warn('思维导图数据格式无效，使用默认数据');
         return NextResponse.json(DEFAULT_MINDMAP_DATA);
