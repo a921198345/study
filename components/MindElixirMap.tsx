@@ -30,74 +30,19 @@ interface MindElixirMapProps {
   className?: string;
 }
 
-// 默认思维导图数据
+// 默认思维导图数据 - 最简单的有效结构
 const DEFAULT_MIND_DATA = {
-  id: 'root',
-  topic: '默认思维导图',
-  expanded: true,
-  children: [
-    {
-      id: 'default-1',
-      topic: '请上传思维导图数据',
-      expanded: true
-    }
-  ]
-};
-
-// OPML数据转换为Mind-Elixir数据格式
-const convertOpmlToMindElixir = (data: any): MindNode => {
-  // 如果数据为空或undefined，使用默认数据
-  if (!data) {
-    return DEFAULT_MIND_DATA;
-  }
-  
-  // 如果传入的是数组，取第一个元素作为根节点
-  const rootNode = Array.isArray(data) ? data[0] : data;
-  
-  // 如果rootNode也是空的，返回默认数据
-  if (!rootNode) {
-    return DEFAULT_MIND_DATA;
-  }
-  
-  const convertNode = (node: any): MindNode => {
-    // 确保有效的topic值
-    const topic = node.title || node.text || node.topic || '未命名节点';
-    
-    const mindNode: MindNode = {
-      id: node.id || `node_${Math.random().toString(36).substr(2, 9)}`,
-      topic: topic,
-      expanded: node.expanded !== undefined ? Boolean(node.expanded) : true
-    };
-    
-    // 处理子节点
-    if (node.children && Array.isArray(node.children) && node.children.length > 0) {
-      mindNode.children = node.children
-        .filter(child => child && typeof child === 'object') // 过滤无效子节点
-        .map(convertNode);
-    }
-    
-    // 根据层级设置不同的样式
-    if (node.level) {
-      const level = parseInt(node.level);
-      if (level === 0) {
-        mindNode.style = { background: '#3498db', color: '#fff' };
-      } else if (level === 1) {
-        mindNode.style = { background: '#e74c3c', color: '#fff' };
-      } else if (level === 2) {
-        mindNode.style = { background: '#2ecc71', color: '#fff' };
-      } else {
-        mindNode.style = { background: '#f39c12', color: '#fff' };
+  nodeData: {
+    id: 'root',
+    topic: '默认思维导图',
+    expanded: true,
+    children: [
+      {
+        id: 'default-1',
+        topic: '请上传思维导图数据',
+        expanded: true
       }
-    }
-    
-    return mindNode;
-  };
-  
-  try {
-    return convertNode(rootNode);
-  } catch (error) {
-    console.error('转换节点出错:', error);
-    return DEFAULT_MIND_DATA;
+    ]
   }
 };
 
@@ -126,117 +71,102 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
     // 确保只在客户端执行
     if (!isClient || !containerRef.current) return;
     
+    // 清除现有实例
+    if (mindElixirRef.current) {
+      try {
+        if (mindElixirRef.current.bus) {
+          mindElixirRef.current.bus.removeAllListeners();
+        }
+        mindElixirRef.current = null;
+      } catch (e) {
+        console.error('清除思维导图实例失败:', e);
+      }
+    }
+
+    // 确保容器为空
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+    }
+    
     // 在客户端动态导入MindElixir
     const loadMindElixir = async () => {
       try {
-        // 清空容器内容，防止重复渲染
-        if (containerRef.current) {
-          containerRef.current.innerHTML = '';
-        } else {
-          console.error('容器引用丢失');
-          return;
-        }
-        
         // 动态导入MindElixir
-        const MindElixirModule = (await import('mind-elixir')).default;
-        if (!MindElixirModule) {
+        const MindElixirModule = await import('mind-elixir');
+        const ME = MindElixirModule.default;
+        
+        if (!ME || typeof ME !== 'function') {
           throw new Error('无法加载MindElixir库');
         }
         
-        // 准备数据，确保数据有效
-        let mindData;
-        try {
-          mindData = convertOpmlToMindElixir(data);
-          
-          // 验证数据结构是否符合Mind-Elixir要求
-          if (!mindData || !mindData.topic || typeof mindData.topic !== 'string') {
-            console.warn('思维导图数据缺少必要的topic字段，使用默认数据');
-            mindData = DEFAULT_MIND_DATA;
+        // 准备数据 - 不进行复杂处理，直接使用简单结构
+        let mindData = DEFAULT_MIND_DATA;
+        
+        // 如果有提供数据，简单处理确保基本结构
+        if (data) {
+          try {
+            // 构建适合MindElixir的数据结构
+            const processedData = {
+              nodeData: {
+                id: data.id || 'root',
+                topic: data.topic || data.title || data.text || '思维导图',
+                expanded: true,
+                children: []
+              }
+            };
+
+            // 处理子节点(如果存在)
+            if (data.children && Array.isArray(data.children)) {
+              processedData.nodeData.children = data.children.map(child => ({
+                id: child.id || `node_${Math.random().toString(36).substr(2, 5)}`,
+                topic: child.topic || child.title || child.text || '节点',
+                expanded: true
+              }));
+            }
+
+            mindData = processedData;
+          } catch (e) {
+            console.error('处理数据失败，使用默认数据:', e);
+            // 使用默认数据
           }
-          
-          // 确保所有必要的字段都存在且类型正确
-          mindData.id = String(mindData.id || 'root');
-          mindData.topic = String(mindData.topic || '思维导图');
-          mindData.expanded = mindData.expanded !== undefined ? Boolean(mindData.expanded) : true;
-          
-          // 确保children是一个数组
-          if (mindData.children && !Array.isArray(mindData.children)) {
-            mindData.children = [];
-          }
-        } catch (dataError) {
-          console.error('数据转换错误:', dataError);
-          mindData = DEFAULT_MIND_DATA;
         }
         
-        // MindElixir要求的标准数据格式
-        const standardData = {
-          nodeData: {
-            id: String(mindData.id),
-            topic: String(mindData.topic),
-            expanded: true,
-            children: Array.isArray(mindData.children) ? mindData.children : []
-          }
+        // 创建Mind Elixir选项
+        const options = {
+          el: containerRef.current,
+          direction: direction === 'side' ? 2 : 1, // 1: 右侧布局, 2: 居中布局
+          draggable: Boolean(draggable),
+          contextMenu: Boolean(contextMenu),
+          contextMenuOption: contextMenu ? {
+            focus: true,
+          } : undefined,
+          allowUndo: Boolean(editable),
+          overflowHidden: false,
+          mainColor: getThemeColor(theme),
+          mainFontColor: '#fff'
         };
         
-        // 将对象转换为字符串，再解析回对象，防止任何undefined值或引用循环
+        // 直接提供数据选项
+        const meOptions = { ...options, data: mindData };
+        
+        // 创建MindElixir实例
         try {
-          // 安全地获取数据，避免JSON解析错误
-          const safeDataString = JSON.stringify(standardData);
-          if (!safeDataString) {
-            throw new Error('数据序列化失败');
+          mindElixirRef.current = new ME(meOptions);
+          
+          // 初始化思维导图
+          mindElixirRef.current.init();
+          
+          // 设置只读模式（如果不可编辑）
+          if (!editable && mindElixirRef.current.operation) {
+            mindElixirRef.current.operation.readonly();
           }
-          
-          const safeData = JSON.parse(safeDataString);
-          
-          // 创建Mind Elixir实例
-          const options = {
-            el: containerRef.current,
-            direction: direction === 'side' ? 2 : 1, // 1: 右侧布局, 2: 居中布局
-            data: safeData,
-            draggable: Boolean(draggable),
-            contextMenu: Boolean(contextMenu),
-            contextMenuOption: contextMenu ? {
-              focus: true,
-            } : undefined,
-            allowUndo: Boolean(editable),
-            overflowHidden: false,
-            mainColor: getThemeColor(theme),
-            mainFontColor: '#fff',
-          };
-          
-          // 创建MindElixir实例
-          try {
-            mindElixirRef.current = new MindElixirModule(options);
-            
-            // 初始化思维导图
-            mindElixirRef.current.init();
-            
-            // 设置只读模式（如果不可编辑）
-            if (!editable && mindElixirRef.current && mindElixirRef.current.operation) {
-              mindElixirRef.current.operation.readonly();
-            }
-            
-            // 事件监听
-            if (mindElixirRef.current && mindElixirRef.current.bus) {
-              mindElixirRef.current.bus.addListener('operation', (operation: any) => {
-                console.log('思维导图操作:', operation);
-              });
-              
-              mindElixirRef.current.bus.addListener('selectNode', (node: any) => {
-                console.log('节点选择:', node);
-              });
-            }
-          } catch (initError) {
-            console.error('MindElixir初始化失败:', initError);
-            setError(`MindElixir初始化失败: ${initError instanceof Error ? initError.message : '未知错误'}`);
-          }
-        } catch (jsonError) {
-          console.error('JSON序列化/解析错误:', jsonError);
-          setError(`JSON序列化失败: ${jsonError instanceof Error ? jsonError.message : '未知错误'}`);
+        } catch (initError) {
+          console.error('MindElixir初始化失败:', initError);
+          setError(`初始化失败: ${initError instanceof Error ? initError.message : '未知错误'}`);
         }
       } catch (err) {
-        console.error('初始化思维导图出错:', err);
-        setError(`初始化思维导图失败: ${err instanceof Error ? err.message : '未知错误'}`);
+        console.error('加载思维导图库出错:', err);
+        setError(`加载失败: ${err instanceof Error ? err.message : '未知错误'}`);
       }
     };
     
