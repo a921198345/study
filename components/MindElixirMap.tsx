@@ -54,6 +54,11 @@ const convertOpmlToMindElixir = (data: any): MindNode => {
   // 如果传入的是数组，取第一个元素作为根节点
   const rootNode = Array.isArray(data) ? data[0] : data;
   
+  // 如果rootNode也是空的，返回默认数据
+  if (!rootNode) {
+    return DEFAULT_MIND_DATA;
+  }
+  
   const convertNode = (node: any): MindNode => {
     const mindNode: MindNode = {
       id: node.id || `node_${Math.random().toString(36).substr(2, 9)}`,
@@ -83,7 +88,12 @@ const convertOpmlToMindElixir = (data: any): MindNode => {
     return mindNode;
   };
   
-  return convertNode(rootNode);
+  try {
+    return convertNode(rootNode);
+  } catch (error) {
+    console.error('转换节点出错:', error);
+    return DEFAULT_MIND_DATA;
+  }
 };
 
 const MindElixirMap: React.FC<MindElixirMapProps> = ({
@@ -126,7 +136,7 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
           mindData = convertOpmlToMindElixir(data);
           
           // 验证数据结构是否符合Mind-Elixir要求
-          if (!mindData.topic || typeof mindData.topic !== 'string') {
+          if (!mindData || !mindData.topic || typeof mindData.topic !== 'string') {
             console.warn('思维导图数据缺少必要的topic字段，使用默认数据');
             mindData = DEFAULT_MIND_DATA;
           }
@@ -135,42 +145,51 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
           mindData = DEFAULT_MIND_DATA;
         }
         
-        // 创建Mind Elixir实例，使用any类型绕过类型检查
-        const options: any = {
-          el: containerRef.current,
-          direction: direction === 'side' ? 2 : 1, // 1: 右侧布局, 2: 居中布局
-          data: {
+        // 转换为字符串再解析，确保数据结构完全有效
+        // 这会清除掉任何undefined或循环引用
+        try {
+          const safeData = JSON.parse(JSON.stringify({ 
             nodeData: mindData
-          },
-          draggable: draggable,
-          contextMenu: contextMenu,
-          contextMenuOption: contextMenu ? {
-            focus: true,
-          } : undefined,
-          allowUndo: editable,
-          overflowHidden: false,
-          mainColor: getThemeColor(theme),
-          mainFontColor: '#fff',
-        };
-        
-        mindElixirRef.current = new MindElixirModule(options);
-        
-        // 初始化思维导图
-        mindElixirRef.current.init();
-        
-        // 设置只读模式（如果不可编辑）
-        if (!editable) {
-          mindElixirRef.current.operation.readonly();
+          }));
+          
+          // 创建Mind Elixir实例，使用any类型绕过类型检查
+          const options: any = {
+            el: containerRef.current,
+            direction: direction === 'side' ? 2 : 1, // 1: 右侧布局, 2: 居中布局
+            data: safeData,
+            draggable: draggable,
+            contextMenu: contextMenu,
+            contextMenuOption: contextMenu ? {
+              focus: true,
+            } : undefined,
+            allowUndo: editable,
+            overflowHidden: false,
+            mainColor: getThemeColor(theme),
+            mainFontColor: '#fff',
+          };
+          
+          mindElixirRef.current = new MindElixirModule(options);
+          
+          // 初始化思维导图
+          mindElixirRef.current.init();
+          
+          // 设置只读模式（如果不可编辑）
+          if (!editable) {
+            mindElixirRef.current.operation.readonly();
+          }
+          
+          // 事件监听
+          mindElixirRef.current.bus.addListener('operation', (operation: any) => {
+            console.log('思维导图操作:', operation);
+          });
+          
+          mindElixirRef.current.bus.addListener('selectNode', (node: any) => {
+            console.log('节点选择:', node);
+          });
+        } catch (jsonError) {
+          console.error('JSON序列化/解析错误:', jsonError);
+          setError(`JSON序列化失败: ${jsonError instanceof Error ? jsonError.message : '未知错误'}`);
         }
-        
-        // 事件监听
-        mindElixirRef.current.bus.addListener('operation', (operation: any) => {
-          console.log('思维导图操作:', operation);
-        });
-        
-        mindElixirRef.current.bus.addListener('selectNode', (node: any) => {
-          console.log('节点选择:', node);
-        });
       } catch (err) {
         console.error('初始化思维导图出错:', err);
         setError(`初始化思维导图失败: ${err instanceof Error ? err.message : '未知错误'}`);
