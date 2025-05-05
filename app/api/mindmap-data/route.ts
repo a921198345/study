@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+// 默认思维导图数据，当文件不存在时返回
+const DEFAULT_MINDMAP_DATA = {
+  id: "root",
+  topic: "默认思维导图",
+  expanded: true,
+  children: [
+    {
+      id: "default-1",
+      topic: "请上传思维导图数据",
+      expanded: true
+    }
+  ]
+};
+
 export async function GET(request: NextRequest) {
   try {
     // 检查是否有active-mindmap.json配置文件
@@ -9,9 +23,15 @@ export async function GET(request: NextRequest) {
     let activeMindmapPath;
     
     if (fs.existsSync(configPath)) {
-      // 读取配置文件获取活跃思维导图路径
-      const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      activeMindmapPath = configData.activePath;
+      try {
+        // 读取配置文件获取活跃思维导图路径
+        const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        activeMindmapPath = configData.activePath;
+      } catch (configError) {
+        console.error('读取配置文件失败:', configError);
+        // 配置文件读取失败，使用默认路径
+        activeMindmapPath = '/data/simple-mindmap.json';
+      }
     } else {
       // 默认使用simple-mindmap.json
       activeMindmapPath = '/data/simple-mindmap.json';
@@ -23,23 +43,41 @@ export async function GET(request: NextRequest) {
     // 检查文件是否存在
     if (!fs.existsSync(fullPath)) {
       console.error('思维导图文件不存在:', fullPath);
-      return NextResponse.json(
-        { error: '思维导图文件不存在' },
-        { status: 404 }
-      );
+      
+      // 检查默认文件是否存在
+      const defaultPath = path.join(process.cwd(), 'public', '/data/simple-mindmap.json');
+      if (fs.existsSync(defaultPath)) {
+        // 使用默认文件
+        const defaultContent = fs.readFileSync(defaultPath, 'utf8');
+        try {
+          const defaultData = JSON.parse(defaultContent);
+          return NextResponse.json(defaultData);
+        } catch (parseError) {
+          console.error('解析默认文件失败:', parseError);
+          // 返回默认数据结构
+          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+        }
+      } else {
+        // 返回内置默认数据
+        return NextResponse.json(DEFAULT_MINDMAP_DATA);
+      }
     }
     
     // 读取JSON文件内容
-    const fileContent = fs.readFileSync(fullPath, 'utf8');
-    const mindmapData = JSON.parse(fileContent);
-    
-    // 返回思维导图数据
-    return NextResponse.json(mindmapData);
+    try {
+      const fileContent = fs.readFileSync(fullPath, 'utf8');
+      const mindmapData = JSON.parse(fileContent);
+      
+      // 返回思维导图数据
+      return NextResponse.json(mindmapData);
+    } catch (fileError) {
+      console.error('读取或解析思维导图文件失败:', fileError);
+      // 文件读取或解析失败，返回默认数据
+      return NextResponse.json(DEFAULT_MINDMAP_DATA);
+    }
   } catch (error) {
     console.error('获取思维导图数据失败:', error);
-    return NextResponse.json(
-      { error: '加载思维导图数据失败', details: (error as Error).message },
-      { status: 500 }
-    );
+    // 发生任何错误，返回默认数据
+    return NextResponse.json(DEFAULT_MINDMAP_DATA);
   }
 } 

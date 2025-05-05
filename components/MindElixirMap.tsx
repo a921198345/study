@@ -30,15 +30,34 @@ interface MindElixirMapProps {
   className?: string;
 }
 
+// 默认思维导图数据
+const DEFAULT_MIND_DATA = {
+  id: 'root',
+  topic: '默认思维导图',
+  expanded: true,
+  children: [
+    {
+      id: 'default-1',
+      topic: '请上传思维导图数据',
+      expanded: true
+    }
+  ]
+};
+
 // OPML数据转换为Mind-Elixir数据格式
 const convertOpmlToMindElixir = (data: any): MindNode => {
+  // 如果数据为空或undefined，使用默认数据
+  if (!data) {
+    return DEFAULT_MIND_DATA;
+  }
+  
   // 如果传入的是数组，取第一个元素作为根节点
   const rootNode = Array.isArray(data) ? data[0] : data;
   
   const convertNode = (node: any): MindNode => {
     const mindNode: MindNode = {
       id: node.id || `node_${Math.random().toString(36).substr(2, 9)}`,
-      topic: node.title || node.text || '未命名节点',
+      topic: node.title || node.text || node.topic || '未命名节点',
       expanded: true
     };
     
@@ -101,8 +120,20 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         // 动态导入MindElixir
         const MindElixirModule = (await import('mind-elixir')).default;
         
-        // 准备数据
-        const mindData = convertOpmlToMindElixir(data);
+        // 准备数据，确保数据有效
+        let mindData;
+        try {
+          mindData = convertOpmlToMindElixir(data);
+          
+          // 验证数据结构是否符合Mind-Elixir要求
+          if (!mindData.topic || typeof mindData.topic !== 'string') {
+            console.warn('思维导图数据缺少必要的topic字段，使用默认数据');
+            mindData = DEFAULT_MIND_DATA;
+          }
+        } catch (dataError) {
+          console.error('数据转换错误:', dataError);
+          mindData = DEFAULT_MIND_DATA;
+        }
         
         // 创建Mind Elixir实例，使用any类型绕过类型检查
         const options: any = {

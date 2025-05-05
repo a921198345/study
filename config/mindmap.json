@@ -1,1 +1,11 @@
-{"activeFile":"","availableFiles":[]}
+{
+  "activeFile": "/data/simple-mindmap.json",
+  "availableFiles": [
+    {
+      "id": "default",
+      "name": "默认思维导图",
+      "path": "/data/simple-mindmap.json",
+      "createdAt": "2024-05-06T00:00:00.000Z"
+    }
+  ]
+}
