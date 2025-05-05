@@ -194,29 +194,30 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
     
     // 在客户端动态导入MindElixir
     const loadMindElixir = async () => {
+      setError('');
+      
+      if (!containerRef.current) {
+        console.error("容器元素不存在");
+        setError("容器元素不存在");
+        return;
+      }
+      
       try {
         // 动态导入MindElixir
-        const MindElixirModule = await import('mind-elixir');
-        const ME = MindElixirModule.default;
+        const MindElixir = await import('mind-elixir');
+        const ME = MindElixir.default;
         
-        if (!ME || typeof ME !== 'function') {
-          throw new Error('无法加载MindElixir库');
-        }
+        // 准备数据
+        let mindElixirData = convertOpmlToMindElixir(data);
         
-        // 转换数据为Mind-Elixir格式
-        const mindElixirData = convertOpmlToMindElixir(data);
-        console.log('处理后的Mind-Elixir数据:', JSON.stringify(mindElixirData).substring(0, 200) + '...');
-        
-        // 创建Mind Elixir选项
+        // 配置MindElixir选项
         const options = {
-          el: containerRef.current,
-          direction: direction === 'side' ? 2 : 1, // 1: 右侧布局, 2: 居中布局
-          draggable: Boolean(draggable),
-          contextMenu: Boolean(contextMenu),
-          contextMenuOption: contextMenu ? {
-            focus: true,
-          } : undefined,
-          allowUndo: Boolean(editable),
+          el: containerRef.current!, // 使用断言确保非空
+          direction: direction === 'right' ? 1 : 2, // 1=右侧布局, 2=中心布局
+          draggable: draggable,
+          contextMenu: contextMenu,
+          contextMenuOption: contextMenu ? { focus: true } : undefined,
+          allowUndo: editable,
           overflowHidden: false,
           mainColor: getThemeColor(theme),
           mainFontColor: '#fff',
