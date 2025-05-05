@@ -4,18 +4,31 @@
     "enabled": true,
     "silent": true
   },
-  "buildCommand": "npm run build",
+  "buildCommand": "npm install --include=dev && npm run build",
+  "installCommand": "npm install --include=dev",
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
     {
-      "source": "https://study-cuiges-projects.vercel.app/(.*)",
-      "destination": "https://study-sage-chi.vercel.app/$1",
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "study-cuiges-projects.vercel.app"
+        }
+      ],
+      "destination": "https://study-sage-chi.vercel.app/:path*",
       "permanent": true
     },
     {
-      "source": "https://study-rabx98gev-cuiges-projects.vercel.app/(.*)",
-      "destination": "https://study-sage-chi.vercel.app/$1",
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "study-rabx98gev-cuiges-projects.vercel.app"
+        }
+      ],
+      "destination": "https://study-sage-chi.vercel.app/:path*",
       "permanent": true
     }
   ]
