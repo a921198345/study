@@ -4,10 +4,14 @@
     "enabled": true,
     "silent": true
   },
-  "buildCommand": "npm install --include=dev && npm run build",
-  "installCommand": "npm install --include=dev",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "cleanUrls": true,
   "trailingSlash": false,
+  "env": {
+    "NODE_ENV": "production",
+    "NODE_VERSION": "18.x"
+  },
   "redirects": [
     {
       "source": "/:path*",
