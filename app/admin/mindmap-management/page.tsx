@@ -23,6 +23,7 @@ import {
 import Link from 'next/link';
 import type { UploadProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import ErrorBoundary from '@/components/error-boundary';
 
 const { Title, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -288,57 +289,58 @@ const MindMapManagement = () => {
   );
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <ErrorBoundary>
       {contextHolder}
-      
-      <Typography>
-        <Title level={2}>思维导图管理</Title>
-        <Paragraph>
-          在此页面上传和管理OPML格式的思维导图文件。上传后的文件将自动转换为适用于思维导图显示的格式。
-        </Paragraph>
-      </Typography>
-      
-      {isVercel && (
-        <Alert
-          message="Vercel部署提示"
-          description="在Vercel环境中，文件上传和管理功能仅作为演示，文件将不会永久保存。每次重新部署后，文件列表将重置为默认状态。"
-          type="warning"
-          showIcon
-          className="mb-4"
-        />
-      )}
-      
-      <div className="my-6">
-        <Dragger 
-          {...uploadProps}
-          disabled={uploading}
-          className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg"
-        >
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined />
-          </p>
-          <p className="ant-upload-text">点击或拖拽OPML文件到此区域上传</p>
-          <p className="ant-upload-hint">
-            仅支持单个OPML格式文件，文件大小不超过10MB
-          </p>
-          {uploading && <Spin className="mt-2" />}
-        </Dragger>
-      </div>
-      
-      <div className="my-6">
-        <Spin spinning={loading}>
-          <Table 
-            columns={columns} 
-            dataSource={files}
-            rowKey="id"
-            pagination={false}
-            locale={{ emptyText: '暂无文件，请上传' }}
+      <div className="container mx-auto p-6 max-w-6xl">
+        <Typography>
+          <Title level={2}>思维导图管理</Title>
+          <Paragraph>
+            在此页面上传和管理OPML格式的思维导图文件。上传后的文件将自动转换为适用于思维导图显示的格式。
+          </Paragraph>
+        </Typography>
+        
+        {isVercel && (
+          <Alert
+            message="Vercel部署提示"
+            description="在Vercel环境中，文件上传和管理功能仅作为演示，文件将不会永久保存。每次重新部署后，文件列表将重置为默认状态。"
+            type="warning"
+            showIcon
+            className="mb-4"
           />
-        </Spin>
+        )}
+        
+        <div className="my-6">
+          <Dragger 
+            {...uploadProps}
+            disabled={uploading}
+            className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg"
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text">点击或拖拽OPML文件到此区域上传</p>
+            <p className="ant-upload-hint">
+              仅支持单个OPML格式文件，文件大小不超过10MB
+            </p>
+            {uploading && <Spin className="mt-2" />}
+          </Dragger>
+        </div>
+        
+        <div className="my-6">
+          <Spin spinning={loading}>
+            <Table 
+              columns={columns} 
+              dataSource={files}
+              rowKey="id"
+              pagination={false}
+              locale={{ emptyText: '暂无文件，请上传' }}
+            />
+          </Spin>
+        </div>
+        
+        <DeploymentGuide />
       </div>
-      
-      <DeploymentGuide />
-    </div>
+    </ErrorBoundary>
   );
 };
 
