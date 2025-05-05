@@ -1,82 +1,47 @@
 'use client'
 
-import React, { ErrorInfo, ReactNode } from 'react';
-import { Alert, Button, Typography } from 'antd';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
-const { Text, Title } = Typography;
-
-interface ErrorBoundaryProps {
+interface Props {
   children: ReactNode;
   fallback?: ReactNode;
 }
 
-interface ErrorBoundaryState {
+interface State {
   hasError: boolean;
-  error: Error | null;
-  errorInfo: ErrorInfo | null;
+  error?: Error;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null
-    };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // 更新状态，下次渲染时显示错误UI
-    return {
-      hasError: true,
-      error,
-      errorInfo: null
-    };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // 记录错误信息
-    console.error('组件错误：', error, errorInfo);
-    this.setState({
-      error,
-      errorInfo
-    });
+    console.error('组件错误:', error);
+    console.error('错误详情:', errorInfo);
   }
 
-  handleReset = (): void => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null
-    });
-  };
-
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
-      // 自定义错误UI
+      // 自定义降级UI
       return this.props.fallback || (
-        <div className="error-boundary-container p-4">
-          <Alert
-            type="error"
-            message={
-              <Title level={4}>组件加载错误</Title>
-            }
-            description={
-              <div>
-                <Text>发生了一个错误，导致组件无法正常渲染。</Text>
-                <div className="my-2">
-                  <Text type="danger">{this.state.error?.message}</Text>
-                </div>
-                <div className="mt-4">
-                  <Button type="primary" onClick={this.handleReset}>
-                    重试
-                  </Button>
-                </div>
-              </div>
-            }
-            showIcon
-          />
+        <div className="p-4 border border-red-300 bg-red-50 rounded-md">
+          <h2 className="text-lg font-semibold text-red-600">组件加载出错</h2>
+          <p className="text-sm text-red-500 mt-1">
+            {this.state.error?.message || '发生了未知错误'}
+          </p>
+          <button
+            className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm"
+            onClick={() => this.setState({ hasError: false })}
+          >
+            重试
+          </button>
         </div>
       );
     }
