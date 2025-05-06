@@ -113,11 +113,31 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
       idCounter++;
       const nodeId = `node-${path}-${idCounter}`;
       
-      // 提取标题（优先使用text属性，其次是_text或title属性）
+      // 提取标题（增强版 - 处理MuBu格式）
       let topic = '';
-      if (node.text) {
+      
+      // MuBu格式特殊处理 - 先检查$属性
+      if (node.$ && node.$.text) {
+        topic = String(node.$.text);
+      } 
+      // 处理MuBu特有的_mubu_text属性（URL编码的HTML）
+      else if (node._mubu_text) {
+        try {
+          // 解码URL编码
+          const decoded = decodeURIComponent(node._mubu_text);
+          // 移除HTML标签
+          topic = decoded.replace(/<\/?[^>]+(>|$)/g, "");
+        } catch (e) {
+          console.warn('解码_mubu_text失败:', e);
+          topic = String(node._mubu_text).substr(0, 30) + '...';
+        }
+      }
+      // 然后检查直接text属性
+      else if (node.text) {
         topic = String(node.text);
-      } else if (node._text) {
+      }
+      // 其他可能的属性
+      else if (node._text) {
         topic = String(node._text);
       } else if (node.title) {
         topic = String(node.title);
@@ -167,13 +187,22 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
     }
     
     if (!rootNode.topic || rootNode.topic === '') {
-      rootNode.topic = '思维导图';
+      // 尝试从OPML标题获取根节点标题
+      rootNode.topic = result.opml.head?.title || '思维导图';
     }
     
     // 返回标准格式
     const result_data = { 
       nodeData: rootNode 
     };
+    
+    // 记录一些节点示例以便调试
+    if (rootNode.children && rootNode.children.length > 0) {
+      console.log('示例子节点:', JSON.stringify({
+        firstChildTopic: rootNode.children[0].topic,
+        childrenCount: rootNode.children.length
+      }));
+    }
     
     // 额外的验证检查
     if (!result_data.nodeData || !result_data.nodeData.id || !result_data.nodeData.topic) {
