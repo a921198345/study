@@ -5,9 +5,9 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "../../components/ui/button"
+import { Input } from "../../components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import {
   Calendar,
   Clock,
@@ -30,7 +30,7 @@ import {
   Minimize2,
   VolumeX,
 } from "lucide-react"
-import { Progress } from "@/components/ui/progress"
+import { Progress } from "../../components/ui/progress"
 
 type Message = {
   id: string

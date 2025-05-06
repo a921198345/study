@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SimpleMindMap } from '@/components/SimpleMindMap'
+import { SimpleMindMap } from '../../components/SimpleMindMap'
 
 export default function TestMindMapPage() {
   const [data, setData] = useState<any>(null)

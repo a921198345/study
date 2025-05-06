@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import '@/styles/mind-elixir.css';
-import ErrorBoundary from '@/components/error-boundary';
+import '../../styles/mind-elixir.css';
+import ErrorBoundary from '../../components/error-boundary';
 
 // 动态导入组件以避免SSR问题
 const MindElixirMap = dynamic(() => import('@/components/MindElixirMap'), { ssr: false });

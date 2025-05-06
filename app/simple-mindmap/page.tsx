@@ -1,6 +1,6 @@
 'use client'
 
-import { SimpleMindMap } from '@/components/SimpleMindMap'
+import { SimpleMindMap } from '../../components/SimpleMindMap'
 
 export default function SimpleMinMapPage() {
   // 使用硬编码的数据，完全避免任何数据加载

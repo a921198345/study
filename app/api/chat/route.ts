@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
-import { searchKnowledge, formatResponse } from '@/lib/knowledge';
-import { characterPrompts } from '@/lib/characterPrompts';
-import { formatFinalResponse } from '@/lib/ai-response';
+import { searchKnowledge, formatResponse } from '../../../lib/knowledge';
+import { characterPrompts } from '../../../lib/characterPrompts';
+import { formatFinalResponse } from '../../../lib/ai-response';
 
 // 缓存常见问题的回答
 const questionCache = new Map<string, CacheEntry>();
