@@ -526,6 +526,10 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
             const unpatchJSON = safePatchMindElixir();
             
             try {
+              // 重新导入MindElixir库以确保ME变量在当前范围内可用
+              const MindElixir = await import('mind-elixir');
+              const ME = MindElixir.default;
+              
               // 创建新实例
               mindElixirRef.current = new ME(newOptions);
               mindElixirRef.current.init();
