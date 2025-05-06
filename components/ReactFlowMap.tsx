@@ -86,33 +86,60 @@ interface ReactFlowMapProps {
 
 // 验证数据的格式
 const isValidData = (data: any): boolean => {
-  if (!data) return false;
+  if (!data) {
+    console.warn('ReactFlowMap: 数据为null或undefined');
+    return false;
+  }
   
-  if (typeof data !== 'object') return false;
+  if (typeof data !== 'object') {
+    console.warn(`ReactFlowMap: 数据不是对象类型，而是 ${typeof data}`);
+    return false;
+  }
+  
+  console.log('ReactFlowMap: 数据对象结构:', Object.keys(data));
   
   // 允许nodeData结构
   if (data.nodeData && typeof data.nodeData === 'object') {
+    // 输出节点数据信息以便调试
+    console.log(`ReactFlowMap: 检测到nodeData结构，ID=${data.nodeData.id}, 主题=${data.nodeData.topic?.substring(0, 30)}`);
+    
+    // 检查节点结构基本完整性
+    if (!data.nodeData.id) {
+      console.warn('ReactFlowMap: nodeData缺少ID');
+      return false;
+    }
+    
+    if (!data.nodeData.topic) {
+      console.warn('ReactFlowMap: nodeData缺少topic');
+      return false;
+    }
+    
     return true;
   }
   
   // 允许直接节点结构
   if (data.id && data.topic) {
+    console.log(`ReactFlowMap: 检测到单节点结构，ID=${data.id}, 主题=${data.topic?.substring(0, 30)}`);
     return true;
   }
   
-  // 允许topic结构
+  // 允许topic结构（不完整但可以修复）
   if (data.topic) {
+    console.log(`ReactFlowMap: 检测到不完整节点结构，主题=${data.topic?.substring(0, 30)}`);
     return true;
   }
   
+  console.warn('ReactFlowMap: 无效的数据结构:', data);
   return false;
 };
 
 // 将Mind Elixir格式转换为ReactFlow格式
 const convertToReactFlow = (data: any) => {
+  console.log('ReactFlowMap: 开始数据转换...');
+  
   // 如果没有有效数据，使用默认数据
   if (!isValidData(data)) {
-    console.warn('提供的数据无效，使用默认数据');
+    console.warn('ReactFlowMap: 提供的数据无效，使用默认数据');
     data = DEFAULT_MIND_DATA;
   }
 
@@ -121,10 +148,19 @@ const convertToReactFlow = (data: any) => {
   
   if (data.nodeData) {
     rootNode = data.nodeData;
+    console.log('ReactFlowMap: 使用nodeData结构');
   } else if (data.topic) {
     rootNode = data;
+    console.log('ReactFlowMap: 使用单节点结构');
   } else {
     rootNode = DEFAULT_MIND_DATA.nodeData;
+    console.log('ReactFlowMap: 使用默认数据结构');
+  }
+
+  // 确保rootNode有ID
+  if (!rootNode.id) {
+    rootNode.id = 'root';
+    console.log('ReactFlowMap: 为根节点添加默认ID');
   }
 
   const nodes: Node[] = [];
@@ -132,10 +168,18 @@ const convertToReactFlow = (data: any) => {
   
   // 递归处理节点
   const processNode = (node: any, parentId: string | null = null, level: number = 0, position = { x: 0, y: 0 }, direction: string = 'right') => {
-    if (!node) return;
+    if (!node) {
+      console.warn('ReactFlowMap: 处理空节点');
+      return;
+    }
     
     // 确保节点有ID
     const id = String(node.id || `node-${Math.random().toString(36).substr(2, 9)}`);
+    
+    // 确保节点有标题
+    const label = node.topic || node.text || node.label || '节点';
+    
+    console.log(`ReactFlowMap: 处理节点 ID=${id}, 标题=${label.substring(0, 20)}, 级别=${level}`);
     
     // 添加节点
     nodes.push({
@@ -143,7 +187,7 @@ const convertToReactFlow = (data: any) => {
       type: 'custom',
       position,
       data: { 
-        label: node.topic || '节点', 
+        label, 
         level,
         style: node.style || {}
       },
@@ -174,9 +218,16 @@ const convertToReactFlow = (data: any) => {
     // 处理子节点
     if (node.children && Array.isArray(node.children)) {
       const childCount = node.children.length;
+      console.log(`ReactFlowMap: 处理节点 ${id} 的 ${childCount} 个子节点`);
+      
       const spacing = 150; // 节点间距
       
       node.children.forEach((child: any, index: number) => {
+        if (!child) {
+          console.warn(`ReactFlowMap: 节点 ${id} 的第 ${index} 个子节点为空`);
+          return;
+        }
+        
         let childPosition;
         
         if (direction === 'right') {
@@ -200,7 +251,13 @@ const convertToReactFlow = (data: any) => {
   };
   
   // 从根节点开始处理
-  processNode(rootNode, null, 0, { x: 50, y: 50 }, 'right');
+  try {
+    console.log('ReactFlowMap: 开始从根节点处理');
+    processNode(rootNode, null, 0, { x: 50, y: 50 }, 'right');
+    console.log(`ReactFlowMap: 处理完成，生成 ${nodes.length} 个节点和 ${edges.length} 条边`);
+  } catch (error) {
+    console.error('ReactFlowMap: 处理节点时出错:', error);
+  }
   
   return { nodes, edges };
 };

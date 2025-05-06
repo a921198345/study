@@ -212,6 +212,32 @@ function sanitizeJsonString(jsonStr: string): string {
   }
 }
 
+// 递归为节点添加ID
+const ensureNodeIds = (node: any, prefix: string = 'node'): any => {
+  if (!node) return null;
+  
+  // 如果节点没有ID，生成一个唯一ID
+  if (!node.id) {
+    node.id = `${prefix}-${Math.random().toString(36).substring(2, 11)}`;
+  }
+  
+  // 确保topic存在
+  if (!node.topic && node.text) {
+    node.topic = node.text;
+  } else if (!node.topic) {
+    node.topic = '未命名节点';
+  }
+  
+  // 处理子节点
+  if (node.children && Array.isArray(node.children)) {
+    for (let i = 0; i < node.children.length; i++) {
+      node.children[i] = ensureNodeIds(node.children[i], `${node.id}-${i}`);
+    }
+  }
+  
+  return node;
+};
+
 // 将OPML格式转换为Mind-Elixir格式
 async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
   try {
@@ -372,6 +398,9 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
         };
       }).filter(Boolean); // 过滤掉null值
     }
+    
+    // 确保所有节点（包括深层嵌套节点）都有ID
+    result_data.nodeData = ensureNodeIds(result_data.nodeData);
     
     // 记录一些节点示例以便调试
     if (result_data.nodeData.children && result_data.nodeData.children.length > 0) {
