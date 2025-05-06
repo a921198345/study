@@ -130,7 +130,7 @@ function sanitizeJsonString(jsonStr: string): string {
     // 8. 其他常见错误修复
     fixed = fixed.replace(/}\s*{/g, '},{')  // 修复对象之间缺少逗号
                  .replace(/]\s*\[/g, '],[')  // 修复数组之间缺少逗号
-                 .replace(/}\s*\[/g, '},['). // 修复对象后接数组缺少逗号
+                 .replace(/}\s*\[/g, '},[') // 修复对象后接数组缺少逗号
                  .replace(/]\s*{/g, '],{');  // 修复数组后接对象缺少逗号
     
     console.log('JSON修复完成，尝试验证');
