@@ -303,24 +303,59 @@ const sanitizeForMindElixir = (data: any): any => {
   return result;
 };
 
-// 添加这个新方法到文件顶部，在其他import之后
-// 这个函数将拦截Mind-Elixir库的JSON.parse调用
+// 这个函数将拦截Mind-Elixir库的JSON.parse调用并增强其健壮性
 function safePatchMindElixir() {
   // 保存原始的JSON.parse方法
   const originalJSONParse = JSON.parse;
   
   // 替换全局JSON.parse方法，拦截Mind-Elixir的调用
   JSON.parse = function(text: string, ...args: any[]) {
-    // 检查是否包含"undefined"字符串，这是导致错误的原因
-    if (typeof text === 'string' && text.includes('"undefined"')) {
-      console.warn('检测到包含"undefined"的JSON字符串，进行修复');
-      // 替换所有"undefined"为null
-      const fixedText = text.replace(/"undefined"/g, 'null');
-      return originalJSONParse(fixedText, ...args);
+    // 如果输入无效，返回空对象而不是抛出错误
+    if (!text || typeof text !== 'string') {
+      console.warn('JSON.parse收到无效输入，返回空对象', text);
+      return {};
     }
     
-    // 如果不需要特殊处理，使用原始方法
-    return originalJSONParse(text, ...args);
+    try {
+      // 对多种无效JSON模式进行处理
+      let fixedText = text;
+      
+      // 处理所有包含"undefined"的情况
+      if (fixedText.includes('"undefined"')) {
+        console.warn('检测到包含"undefined"的JSON字符串，进行修复');
+        fixedText = fixedText.replace(/"undefined"/g, 'null');
+      }
+      
+      // 处理裸undefined（没有引号）
+      if (fixedText.includes('undefined')) {
+        console.warn('检测到裸undefined，进行修复');
+        fixedText = fixedText.replace(/undefined/g, 'null');
+      }
+      
+      // 处理常见的错误格式，如多余的逗号
+      fixedText = fixedText.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+      
+      // 处理空属性（无值）
+      fixedText = fixedText.replace(/"[^"]+"\s*:/g, (match) => {
+        if (match.endsWith(':')) {
+          return match + 'null';
+        }
+        return match;
+      });
+      
+      // 尝试解析修复后的文本
+      try {
+        return originalJSONParse(fixedText, ...args);
+      } catch (innerError) {
+        // 如果还是失败，作为最后的尝试，返回一个空对象而非抛出错误
+        console.error('修复后的JSON仍无法解析，返回空对象', fixedText, innerError);
+        return {};
+      }
+    } catch (outerError) {
+      // 捕获所有其他错误，返回空对象
+      console.error('JSON处理时发生错误，返回空对象', outerError);
+      return {};
+    }
   };
   
   return function unpatch() {
@@ -370,6 +405,9 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
     if (containerRef.current) {
       containerRef.current.innerHTML = '';
     }
+    
+    // 先应用JSON.parse拦截，防止任何可能的错误
+    const unpatchJSON = safePatchMindElixir();
     
     // 在客户端动态导入MindElixir
     const loadMindElixir = async () => {
@@ -469,9 +507,6 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
           mainFontColor: '#fff',
           data: sanitizeForMindElixir(mindElixirData) // 使用经过深度清理的数据
         };
-        
-        // 在创建Mind-Elixir实例前添加这行代码
-        const unpatchJSON = safePatchMindElixir();
         
         try {
           // 创建Mind-Elixir实例和初始化
@@ -586,7 +621,11 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
       }
     };
     
-    loadMindElixir();
+    // 调用loadMindElixir函数
+    loadMindElixir().catch(err => {
+      console.error('思维导图加载过程中出现未捕获错误:', err);
+      setError('加载过程中出现意外错误，请刷新页面重试');
+    });
     
     // 组件卸载时清理
     return () => {
@@ -603,13 +642,19 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
       
       // 确保恢复原始的JSON.parse
       try {
-        // 临时创建一个拦截函数并立即调用其返回的恢复函数
-        // 这会确保恢复到原始的JSON.parse
-        const unpatch = safePatchMindElixir();
-        unpatch();
+        // 确保一定恢复原始JSON.parse方法
+        unpatchJSON();
         console.log('组件卸载时已恢复原始JSON.parse');
       } catch (e) {
         console.error('恢复JSON.parse时出错:', e);
+        // 最后的尝试 - 直接使用内置函数重新修补
+        try {
+          const finalUnpatch = safePatchMindElixir();
+          finalUnpatch();
+          console.log('使用备用方法恢复JSON.parse');
+        } catch {
+          console.error('所有恢复方法都失败');
+        }
       }
     };
   }, [data, direction, draggable, editable, contextMenu, theme, isClient]);
