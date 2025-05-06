@@ -127,11 +127,11 @@ const convertToReactFlow = (data: any) => {
     rootNode = DEFAULT_MIND_DATA.nodeData;
   }
 
-  const nodes = [];
-  const edges = [];
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
   
   // 递归处理节点
-  const processNode = (node, parentId = null, level = 0, position = { x: 0, y: 0 }, direction = 'right') => {
+  const processNode = (node: any, parentId: string | null = null, level: number = 0, position = { x: 0, y: 0 }, direction: string = 'right') => {
     if (!node) return;
     
     // 确保节点有ID
@@ -176,7 +176,7 @@ const convertToReactFlow = (data: any) => {
       const childCount = node.children.length;
       const spacing = 150; // 节点间距
       
-      node.children.forEach((child, index) => {
+      node.children.forEach((child: any, index: number) => {
         let childPosition;
         
         if (direction === 'right') {
