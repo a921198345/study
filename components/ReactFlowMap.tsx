@@ -265,7 +265,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   }, [data, direction, isClient, setNodes, setEdges]);
   
   // 处理节点点击
-  const onNodeClick = useCallback((_, node) => {
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     console.log('点击节点:', node);
   }, []);
   
