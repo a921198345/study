@@ -25,3 +25,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 忽略嵌套的.git目录
+Software-planning-mcp/.git
+cursor-memory-bank/.git
+*/**/.git
