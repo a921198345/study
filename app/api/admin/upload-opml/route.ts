@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, readFile } from 'fs/promises';
-import fs from 'fs';
-import path from 'path';
 import xml2js from 'xml2js';
+import { supabaseAdmin } from '@/lib/supabase';
 
 // 定义MindElixir节点类型
 interface MindElixirNode {
   topic: string;
+  id?: string;
+  expanded?: boolean;
   children?: MindElixirNode[];
 }
 
@@ -16,14 +16,6 @@ interface FileInfo {
   name: string;
   uploadDate: string;
   nodesCount?: number;
-  path?: string;
-}
-
-// 文件列表配置
-interface FileListConfig {
-  files: FileInfo[];
-  activeFileId: string;
-  lastUpdated: string;
 }
 
 // 将OPML内容转换为Mind-Elixir格式
@@ -48,6 +40,7 @@ async function convertOpmlToMindElixir(opmlContent: string): Promise<MindElixirN
       
       const node: MindElixirNode = {
         topic: outline.$.text || outline.$._text || '未命名节点',
+        expanded: true,
       };
       
       // 处理子节点
@@ -70,6 +63,7 @@ async function convertOpmlToMindElixir(opmlContent: string): Promise<MindElixirN
     const mindElixirData: MindElixirNode = {
       // 使用OPML的根节点文本作为根节点
       topic: rootOutline.$.text || rootOutline.$._text || '思维导图',
+      expanded: true,
       children: []
     };
     
@@ -104,57 +98,26 @@ function countNodes(node: MindElixirNode): number {
   return count;
 }
 
-// 更新文件列表配置
-async function updateFileListConfig(fileInfo: FileInfo, makeActive: boolean = false) {
-  // 配置文件路径
-  const configPath = path.join(process.cwd(), 'public', 'data', 'mindmap-files.json');
-  
-  let config: FileListConfig;
-  
-  // 尝试读取现有配置
+// 更新Supabase中的活跃思维导图
+async function setActiveFile(fileId: string) {
   try {
-    if (fs.existsSync(configPath)) {
-      const configData = await readFile(configPath, 'utf8');
-      config = JSON.parse(configData);
-    } else {
-      // 创建新配置
-      config = {
-        files: [],
-        activeFileId: '',
-        lastUpdated: new Date().toISOString()
-      };
-    }
-  } catch (err) {
-    console.error('读取配置文件失败，创建新配置:', err);
-    config = {
-      files: [],
-      activeFileId: '',
-      lastUpdated: new Date().toISOString()
-    };
-  }
-  
-  // 添加新文件信息
-  config.files = config.files.filter(file => file.id !== fileInfo.id); // 移除相同ID的文件
-  config.files.push(fileInfo); // 添加新文件
-  
-  // 如果需要设置为活跃文件，或者这是第一个文件
-  if (makeActive || config.files.length === 1) {
-    config.activeFileId = fileInfo.id;
+    // 先将所有mindmap设置为非活跃
+    await supabaseAdmin
+      .from('mindmaps')
+      .update({ is_active: false })
+      .neq('id', 'placeholder');
     
-    // 同时更新active-mindmap.json
-    const activePath = path.join(process.cwd(), 'public', 'data', 'active-mindmap.json');
-    await writeFile(activePath, JSON.stringify({
-      activePath: `/data/${fileInfo.id}`,
-      lastUpdated: new Date().toISOString()
-    }, null, 2), 'utf8');
+    // 设置新的活跃文件
+    await supabaseAdmin
+      .from('mindmaps')
+      .update({ is_active: true })
+      .eq('id', fileId);
+    
+    return true;
+  } catch (error) {
+    console.error('设置活跃文件失败:', error);
+    throw error;
   }
-  
-  config.lastUpdated = new Date().toISOString();
-  
-  // 保存配置
-  await writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
-  
-  return config;
 }
 
 export async function POST(request: NextRequest) {
@@ -193,45 +156,13 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 获取当前时间戳作为文件名前缀
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const opmlFileName = `${timestamp}-${file.name}`;
-    const jsonFileName = opmlFileName.replace('.opml', '.json');
-    
-    // 确保目录存在
-    const publicDataDir = path.join(process.cwd(), 'public', 'data');
-    const opmlDir = path.join(publicDataDir, 'opml');
+    // 获取文件内容
+    const opmlBuffer = Buffer.from(await file.arrayBuffer());
+    const opmlContent = opmlBuffer.toString('utf-8');
     
     try {
-      // 创建目录
-      if (!fs.existsSync(publicDataDir)) {
-        console.log(`创建目录: ${publicDataDir}`);
-        await mkdir(publicDataDir, { recursive: true });
-      }
-      
-      if (!fs.existsSync(opmlDir)) {
-        console.log(`创建目录: ${opmlDir}`);
-        await mkdir(opmlDir, { recursive: true });
-      }
-    } catch (dirError) {
-      console.error('创建目录失败:', dirError);
-      return NextResponse.json(
-        { error: true, message: '服务器存储目录创建失败', details: (dirError as Error).message },
-        { status: 500 }
-      );
-    }
-    
-    try {
-      // 保存原始OPML文件
-      const opmlPath = path.join(opmlDir, opmlFileName);
-      console.log(`保存OPML文件到: ${opmlPath}`);
-      const opmlBuffer = Buffer.from(await file.arrayBuffer());
-      await writeFile(opmlPath, opmlBuffer);
-      console.log('OPML文件保存成功');
-      
       // 将OPML转换为Mind-Elixir格式
       console.log('开始转换OPML为Mind-Elixir格式');
-      const opmlContent = opmlBuffer.toString('utf-8');
       const mindElixirData = await convertOpmlToMindElixir(opmlContent);
       console.log('OPML转换成功');
       
@@ -239,41 +170,76 @@ export async function POST(request: NextRequest) {
       const nodesCount = countNodes(mindElixirData);
       console.log(`思维导图共有 ${nodesCount} 个节点`);
       
-      // 保存转换后的JSON文件
-      const jsonPath = path.join(publicDataDir, jsonFileName);
-      console.log(`保存JSON文件到: ${jsonPath}`);
-      await writeFile(jsonPath, JSON.stringify(mindElixirData, null, 2), 'utf-8');
-      console.log('JSON文件保存成功');
+      // 包装为API返回格式
+      const mindElixirJsonData = {
+        nodeData: {
+          id: "root",
+          topic: mindElixirData.topic,
+          expanded: true,
+          children: mindElixirData.children || []
+        }
+      };
+      
+      // 生成文件唯一ID
+      const timestamp = new Date().toISOString();
+      const fileId = `${timestamp}-${file.name.replace(/\s+/g, '_')}`;
+      
+      // 存储到Supabase
+      const { data, error } = await supabaseAdmin.from('mindmaps').insert({
+        id: fileId,
+        file_name: file.name,
+        opml_content: opmlContent,
+        json_content: mindElixirJsonData,
+        nodes_count: nodesCount,
+        is_active: false,
+        created_at: timestamp
+      }).select().single();
+      
+      if (error) {
+        console.error('保存到Supabase失败:', error);
+        return NextResponse.json(
+          { error: true, message: '存储思维导图数据失败', details: error.message },
+          { status: 500 }
+        );
+      }
       
       // 创建文件信息
       const fileInfo: FileInfo = {
-        id: jsonFileName,
-        name: file.name.replace('.opml', ''),
-        uploadDate: new Date().toISOString(),
-        nodesCount: nodesCount,
-        path: `/data/${jsonFileName}`
+        id: fileId,
+        name: file.name,
+        uploadDate: timestamp,
+        nodesCount
       };
       
-      // 更新文件列表配置
-      await updateFileListConfig(fileInfo, true);
-      console.log('文件信息已添加到配置');
+      // 设置为活跃文件
+      const makeActive = formData.get('makeActive') === 'true';
+      if (makeActive) {
+        await setActiveFile(fileId);
+      }
       
+      // 返回成功信息
       return NextResponse.json({
         success: true,
         message: '文件上传并转换成功',
-        file: fileInfo
+        fileInfo,
+        makeActive
       });
-    } catch (fileError) {
-      console.error('文件操作失败:', fileError);
+      
+    } catch (conversionError) {
+      console.error('处理OPML文件失败:', conversionError);
       return NextResponse.json(
-        { error: true, message: '文件保存或转换失败', details: (fileError as Error).message },
+        { 
+          error: true, 
+          message: '文件保存或转换失败', 
+          details: (conversionError as Error).message 
+        },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('上传处理过程中出错:', error);
+    console.error('上传请求处理失败:', error);
     return NextResponse.json(
-      { error: true, message: '上传文件失败', details: (error as Error).message },
+      { error: true, message: '处理请求失败', details: (error as Error).message },
       { status: 500 }
     );
   }

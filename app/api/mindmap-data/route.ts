@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { parseStringPromise } from 'xml2js'; // 导入xml2js库解析OPML文件
+import { supabaseAdmin } from '@/lib/supabase';
 
 // 默认思维导图数据，当文件不存在时返回 - 修改为与MindElixir兼容的格式
 const DEFAULT_MINDMAP_DATA = {
@@ -505,203 +506,104 @@ function convertToMindElixirFormat(data: any): any {
   }
 }
 
-export async function GET(request: NextRequest) {
+// 从Supabase获取活跃的思维导图数据
+async function getActiveMindMapFromSupabase() {
   try {
-    // 提取查询参数，支持直接查询特定文件
-    const url = new URL(request.url);
-    const fileParam = url.searchParams.get('file');
+    console.log('从Supabase获取活跃思维导图数据');
     
-    let activeMindmapPath = '';
+    // 查询活跃的思维导图
+    const { data, error } = await supabaseAdmin
+      .from('mindmaps')
+      .select('*')
+      .eq('is_active', true)
+      .single();
     
-    if (fileParam) {
-      // 如果提供了文件参数，直接使用
-      activeMindmapPath = `/data/${fileParam}`;
-    } else {
-      // 否则查找活跃文件
-      // 检查是否有active-mindmap.json配置文件
-      const configPath = path.join(process.cwd(), 'public', 'data', 'active-mindmap.json');
-      
-      if (fs.existsSync(configPath)) {
-        try {
-          // 读取配置文件获取活跃思维导图路径
-          const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-          activeMindmapPath = configData.activePath;
-          console.log('找到活跃思维导图路径:', activeMindmapPath);
-        } catch (configError) {
-          console.error('读取配置文件失败:', configError);
-          // 配置文件读取失败，使用默认路径
-          activeMindmapPath = '/data/simple-mindmap.json';
-        }
-      } else {
-        // 默认使用simple-mindmap.json
-        activeMindmapPath = '/data/simple-mindmap.json';
-      }
+    if (error) {
+      console.error('查询活跃思维导图失败:', error);
+      return null;
     }
     
-    // 构建文件的完整路径
-    const fullPath = path.join(process.cwd(), 'public', activeMindmapPath);
-    console.log('尝试读取思维导图文件:', fullPath);
-    
-    // 检查文件是否存在
-    if (!fs.existsSync(fullPath)) {
-      console.error('思维导图文件不存在:', fullPath);
-      
-      // 检查默认文件是否存在
-      const defaultPath = path.join(process.cwd(), 'public', '/data/simple-mindmap.json');
-      if (fs.existsSync(defaultPath)) {
-        // 使用默认文件
-        console.log('使用默认文件:', defaultPath);
-        const defaultContent = fs.readFileSync(defaultPath, 'utf8');
-        try {
-          const defaultData = JSON.parse(defaultContent);
-          console.log('默认文件解析成功');
-          
-          // 返回转换后的MindElixir兼容格式
-          const formattedData = convertToMindElixirFormat(defaultData);
-          console.log('返回格式化数据');
-          return NextResponse.json(formattedData);
-        } catch (parseError) {
-          console.error('解析默认文件失败:', parseError);
-          // 返回默认数据结构
-          console.log('返回内置默认数据');
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
-        }
-      } else {
-        // 返回内置默认数据
-        console.log('返回内置默认数据 (无默认文件)');
-        return NextResponse.json(DEFAULT_MINDMAP_DATA);
-      }
+    if (!data) {
+      console.warn('未找到活跃的思维导图数据');
+      return null;
     }
     
-    // 读取文件内容
-    try {
-      const fileContent = fs.readFileSync(fullPath, 'utf8');
-      console.log('文件内容读取成功');
-      
-      // 检测文件格式
-      const fileFormat = detectFileFormat(fileContent);
-      console.log('检测到文件格式:', fileFormat);
-      
-      let formattedData;
-      
-      if (fileFormat === 'json') {
-        // 处理JSON格式，先应用格式修复
-        try {
-          // 先对JSON字符串进行清理和格式修复
-          const sanitizedContent = sanitizeJsonString(fileContent);
-          
-          // 如果修复后的内容是空对象，直接使用默认数据
-          if (sanitizedContent === '{}') {
-            console.warn('JSON数据无法修复，使用默认数据');
-            return NextResponse.json(DEFAULT_MINDMAP_DATA);
-          }
-          
-          // 解析修复后的内容
-          const mindmapData = JSON.parse(sanitizedContent);
-          console.log('JSON解析成功');
-          formattedData = convertToMindElixirFormat(mindmapData);
-        } catch (jsonError) {
-          console.error('JSON处理失败:', jsonError);
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
-        }
-      } else if (fileFormat === 'xml') {
-        // 处理OPML/XML格式
-        try {
-          console.log('开始解析OPML/XML文件');
-          formattedData = await convertOpmlToMindElixir(fileContent);
-          console.log('OPML转换完成', formattedData);
-        } catch (xmlError) {
-          console.error('XML解析失败:', xmlError);
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
-        }
-      } else {
-        // 未知格式
-        console.error('未知文件格式');
-        return NextResponse.json(DEFAULT_MINDMAP_DATA);
-      }
-      
-      console.log('数据格式转换完成，进行最终验证');
-      
-      // 尝试序列化和解析，检查JSON格式是否有效
-      let jsonString = ''; // 在外部定义变量，确保在catch块中可访问
-      try {
-        jsonString = JSON.stringify(formattedData);
-        
-        // 主动检查所有的响应数据是否包含格式问题
-        console.warn('API响应前进行深度格式检查和修复');
-        
-        // 使用增强的JSON修复函数对所有数据进行处理
-        const sanitizedJson = sanitizeJsonString(jsonString);
-        
-        try {
-          // 解析修复后的JSON
-          const validatedData = JSON.parse(sanitizedJson);
-          
-          // 深度验证数据结构
-          if (!validatedData || typeof validatedData !== 'object') {
-            console.warn('修复后的数据不是有效对象，使用默认数据');
-            return NextResponse.json(DEFAULT_MINDMAP_DATA);
-          }
-          
-          // 确保nodeData结构存在且合法
-          if (!validatedData.nodeData || 
-              typeof validatedData.nodeData !== 'object' || 
-              !validatedData.nodeData.id || 
-              !validatedData.nodeData.topic) {
-            console.warn('修复后的数据结构不完整，使用默认数据');
-            return NextResponse.json(DEFAULT_MINDMAP_DATA);
-          }
-          
-          // 确保nodeData.children是数组
-          if (validatedData.nodeData.children && !Array.isArray(validatedData.nodeData.children)) {
-            console.warn('children不是数组，修复数据结构');
-            validatedData.nodeData.children = [];
-          }
-          
-          // 确保expanded是布尔值
-          validatedData.nodeData.expanded = 
-            validatedData.nodeData.expanded === true || 
-            validatedData.nodeData.expanded === 'true' ? true : false;
-          
-          // 最终安全检查 - 再次序列化和解析以确保JSON格式有效
-          const finalCheck = JSON.stringify(validatedData);
-          JSON.parse(finalCheck); // 如果这里出错，会被catch捕获
-          
-          console.log('数据格式验证通过，返回修复后的数据');
-          return NextResponse.json(validatedData);
-        } catch (validationError) {
-          console.error('最终验证失败，返回默认数据:', validationError);
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
-        }
-      } catch (jsonError) {
-        console.error('最终JSON验证失败，尝试数据修复');
-        
-        try {
-          // 最后的挽救尝试：使用formattedData直接进行修复尝试
-          // 如果之前的jsonString有效，使用它；否则重新尝试序列化
-          const dataToFix = jsonString || (formattedData ? JSON.stringify(formattedData) : '{}');
-          const emergencyFixed = sanitizeJsonString(dataToFix);
-          
-          // 如果修复成功就返回修复后的数据
-          if (emergencyFixed !== '{}') {
-            const emergencyData = JSON.parse(emergencyFixed);
-            console.log('紧急修复成功，返回修复后的数据');
-            return NextResponse.json(emergencyData);
-          }
-        } catch (finalError) {
-          console.error('紧急修复也失败，返回默认数据');
-        }
-        
-        return NextResponse.json(DEFAULT_MINDMAP_DATA);
-      }
-    } catch (fileError) {
-      console.error('读取思维导图文件失败:', fileError);
-      // 文件读取失败，返回默认数据
-      return NextResponse.json(DEFAULT_MINDMAP_DATA);
-    }
+    console.log(`找到活跃思维导图: ${data.file_name}`);
+    return data;
   } catch (error) {
     console.error('获取思维导图数据失败:', error);
-    // 发生任何错误，返回默认数据
+    return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    // 获取活跃的思维导图数据
+    const activeMindMap = await getActiveMindMapFromSupabase();
+    
+    // 如果没有找到活跃思维导图，返回默认数据
+    if (!activeMindMap) {
+      console.log('没有活跃的思维导图，返回默认数据');
+      return NextResponse.json(DEFAULT_MINDMAP_DATA);
+    }
+    
+    // 如果有json_content字段，直接使用
+    if (activeMindMap.json_content) {
+      console.log('使用存储的JSON数据');
+      
+      // 进行额外验证
+      if (validateMindMapData(activeMindMap.json_content.nodeData)) {
+        return NextResponse.json(activeMindMap.json_content);
+      } else {
+        console.warn('存储的JSON数据无效，尝试修复');
+        
+        // 尝试修复JSON
+        try {
+          // 将对象转为字符串再修复
+          const jsonString = JSON.stringify(activeMindMap.json_content);
+          const fixedJsonString = sanitizeJsonString(jsonString);
+          const fixedData = JSON.parse(fixedJsonString);
+          
+          if (validateMindMapData(fixedData.nodeData)) {
+            console.log('JSON修复成功');
+            return NextResponse.json(fixedData);
+          }
+        } catch (e) {
+          console.error('JSON修复失败:', e);
+          // 继续处理，尝试其他方法
+        }
+      }
+    }
+    
+    // 如果json_content无效或不存在，尝试使用OPML内容
+    if (activeMindMap.opml_content) {
+      console.log('尝试解析OPML内容');
+      
+      try {
+        // 检测文件格式
+        const format = detectFileFormat(activeMindMap.opml_content);
+        
+        if (format === 'xml') {
+          // 将OPML转换为Mind-Elixir格式
+          const mindElixirData = await convertOpmlToMindElixir(activeMindMap.opml_content);
+          
+          if (validateMindMapData(mindElixirData.nodeData)) {
+            console.log('OPML转换成功');
+            return NextResponse.json(mindElixirData);
+          }
+        }
+      } catch (e) {
+        console.error('OPML处理失败:', e);
+        // 继续处理，返回默认数据
+      }
+    }
+    
+    // 如果所有尝试都失败，返回默认数据
+    console.warn('所有数据处理尝试失败，返回默认数据');
+    return NextResponse.json(DEFAULT_MINDMAP_DATA);
+    
+  } catch (error) {
+    console.error('获取思维导图数据过程中出错:', error);
     return NextResponse.json(DEFAULT_MINDMAP_DATA);
   }
 } 

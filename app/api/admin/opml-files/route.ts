@@ -1,43 +1,45 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { supabaseAdmin } from '@/lib/supabase';
 
-// 从配置文件读取文件列表
-function getFileListFromConfig(): any {
+// 从Supabase获取思维导图文件列表
+async function getFileListFromSupabase() {
   try {
-    const configPath = path.join(process.cwd(), 'public', 'data', 'mindmap-files.json');
+    // 查询所有思维导图文件
+    const { data, error } = await supabaseAdmin
+      .from('mindmaps')
+      .select('*')
+      .order('created_at', { ascending: false });
     
-    // 检查配置文件是否存在
-    if (!fs.existsSync(configPath)) {
-      console.log('配置文件不存在，返回空列表');
-      return { files: [], activeFileId: '' };
+    if (error) {
+      console.error('查询文件列表失败:', error);
+      return { files: [], error: error.message };
     }
-
-    const configData = fs.readFileSync(configPath, 'utf-8');
-    const config = JSON.parse(configData);
-    return config;
+    
+    // 转换为前端需要的格式
+    const files = data.map(item => ({
+      id: item.id,
+      name: item.file_name,
+      uploadDate: item.created_at,
+      nodesCount: item.nodes_count || 0,
+      isActive: item.is_active || false
+    }));
+    
+    return { files, error: null };
   } catch (error) {
-    console.error('读取配置文件失败:', error);
-    return { files: [], activeFileId: '' };
+    console.error('获取文件列表异常:', error);
+    return { files: [], error: (error as Error).message };
   }
 }
 
-// 获取默认文件列表（用于配置丢失或其他特殊情况）
+// 获取默认文件列表（用于数据库连接失败时）
 function getDefaultFiles() {
   return [
     {
       id: 'simple-mindmap.json',
-      name: 'simple-mindmap',
+      name: '思维导图示例',
       uploadDate: '2023-10-13T01:46:40.000Z',
-      nodesCount: 15,
+      nodesCount: 3,
       isActive: true
-    },
-    {
-      id: '2025-04-28T11-12-33-489Z-__.json',
-      name: '2025-04-28T11-12-33-489Z-__',
-      uploadDate: '2023-10-13T01:48:40.000Z',
-      nodesCount: 21,
-      isActive: false
     }
   ];
 }
@@ -46,29 +48,20 @@ export async function GET() {
   console.log('获取思维导图文件列表');
   
   try {
-    // 从配置文件获取文件列表
-    const { files, activeFileId } = getFileListFromConfig();
+    // 从Supabase获取文件列表
+    const { files, error } = await getFileListFromSupabase();
     
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      console.log('配置中未找到文件，返回默认文件列表');
-      const defaultFiles = getDefaultFiles();
+    if (error || !files || files.length === 0) {
+      console.log('未获取到文件列表或发生错误，返回默认列表');
       return NextResponse.json({ 
-        files: defaultFiles,
-        message: '使用默认文件列表 - 未找到已上传文件'
+        files: getDefaultFiles(),
+        message: '使用默认文件列表 - 未找到已上传文件或发生错误',
+        error: error
       });
     }
     
-    // 添加isActive标记到每个文件
-    const filesWithActiveFlag = files.map(file => ({
-      ...file,
-      isActive: file.id === activeFileId
-    }));
-    
-    // 按上传日期降序排序
-    filesWithActiveFlag.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
-    
-    console.log(`找到 ${filesWithActiveFlag.length} 个文件`);
-    return NextResponse.json({ files: filesWithActiveFlag });
+    console.log(`找到 ${files.length} 个文件`);
+    return NextResponse.json({ files });
   } catch (error) {
     console.error('获取文件列表失败:', error);
     // 发生错误时返回默认文件列表

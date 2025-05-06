@@ -474,103 +474,68 @@
 
 ## 会话总结
 
-### 2024-05-01：新增思维导图管理功能
+### 会话目的
+优化思维导图数据存储，将OPML文件内容存储从文件系统迁移到Supabase数据库，解决Vercel部署环境中文件系统只读的限制。
 
-#### 会话主要目的
-- 创建专门的开发者管理页面，用于管理OPML思维导图文件
+### 完成的主要任务
+1. 创建Supabase表结构用于存储思维导图数据
+2. 修改OPML上传API，直接将内容存储到Supabase
+3. 优化思维导图数据获取API，从Supabase读取数据
+4. 实现设置活跃文件和删除文件API与Supabase的集成
+5. 提供SQL脚本便于快速创建数据库表结构
 
-#### 完成的主要任务
-1. 创建了思维导图管理前端界面，支持文件上传、预览、设置活跃和删除操作
-2. 开发了四个相关API端点:
-   - `GET /api/admin/opml-files` - 获取所有思维导图文件列表
-   - `POST /api/admin/set-active` - 设置活跃文件
-   - `POST /api/admin/delete-file` - 删除指定文件
-   - `POST /api/admin/upload-opml` - 上传并转换OPML文件
+### 关键决策和解决方案
+- **存储迁移**: 将OPML和JSON内容作为文本和JSONB直接存储在Supabase中，而非文件系统
+- **数据结构优化**: 设计了高效的数据库表结构，包含索引和触发器
+- **错误处理增强**: 在所有API中增加了详细的错误处理和日志记录
+- **兼容性保证**: 确保前端组件无需修改即可使用新的存储方式
 
-#### 关键决策和解决方案
-- 采用Antd组件库构建管理界面，提供美观的UI和良好的用户体验
-- 实现OPML到Mind-Elixir格式的转换逻辑，支持复杂思维导图结构
-- 使用配置文件存储活跃文件信息，便于系统读取默认显示的思维导图
-- 为各API接口添加完善的错误处理和安全检查
+### 使用的技术栈
+- Supabase PostgreSQL 数据库
+- Next.js API Routes
+- TypeScript
+- Vercel Serverless Functions
 
-#### 使用的技术栈
-- 前端: Next.js, React, Ant Design, TypeScript
-- 后端: Next.js API Routes, Node.js文件系统操作
-- 数据处理: xml2js (OPML解析库)
+### 修改了哪些文件
+- `app/api/admin/upload-opml/route.ts` - 修改为使用Supabase存储
+- `app/api/mindmap-data/route.ts` - 从Supabase获取思维导图数据
+- `app/api/admin/opml-files/route.ts` - 从Supabase获取文件列表
+- `app/api/admin/set-active/route.ts` - 使用Supabase设置活跃文件
+- `app/api/admin/delete-file/route.ts` - 使用Supabase删除文件
+- `scripts/create-mindmaps-table.sql` - 创建Supabase表结构的SQL脚本
 
-#### 修改的文件
-- 创建: `app/admin/mindmap-management/page.tsx` - 管理界面
-- 创建: `app/api/admin/opml-files/route.ts` - 文件列表API
-- 创建: `app/api/admin/set-active/route.ts` - 设置活跃文件API
-- 创建: `app/api/admin/delete-file/route.ts` - 删除文件API
-- 创建: `app/api/admin/upload-opml/route.ts` - 上传文件API
-- 创建: `config/mindmap.json` - 配置文件
-- 更新: `README.md` - 添加文档说明 
+## Supabase表结构
 
-### 2024-05-06（当前日期）
-- **会话主要目的**：修复MindElixirMap组件的JSON解析错误
-- **完成的主要任务**：
-  - 修复了MindElixirMap组件在数据为undefined时的处理逻辑
-  - 添加了完善的数据有效性检查和错误处理机制
-  - 为mindmap API端点添加了默认数据处理
-  - 修复了配置文件指向不存在文件的问题
-- **关键决策和解决方案**：
-  - 添加DEFAULT_MIND_DATA作为默认思维导图数据
-  - 在数据转换过程中添加try-catch错误处理
-  - 修复API端点，当文件不存在时返回默认数据而不是错误
-  - 确保配置文件指向可用的默认思维导图
-- **技术栈**：React, TypeScript, Next.js, mind-elixir
-- **修改文件**：
-  - components/MindElixirMap.tsx
-  - app/api/mindmap-data/route.ts
-  - config/mindmap.json
-  - public/data/active-mindmap.json
+项目现已使用Supabase存储思维导图数据，解决了Vercel部署环境中文件系统只读的限制。表结构如下：
 
-## 思维导图错误处理说明
-思维导图组件现已优化了错误处理机制：
-1. 当数据为undefined或null时，会自动使用默认数据
-2. 转换过程添加了完善的错误处理，防止格式错误导致整个组件崩溃
-3. 组件内添加了数据有效性检查，确保必要字段存在
-4. API层面也添加了多层错误处理，确保始终返回有效数据
+```sql
+CREATE TABLE mindmaps (
+  id TEXT PRIMARY KEY,
+  file_name TEXT NOT NULL,
+  opml_content TEXT,
+  json_content JSONB,
+  nodes_count INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
 
-这些改进确保了即使在数据缺失或配置错误的情况下，思维导图组件也能正常工作并显示友好的默认内容。 
+## 如何部署
 
-### 2024-05-07（当前日期）
-- **会话主要目的**：修复思维导图JSON解析错误和组件加载问题
-- **完成的主要任务**：
-  - 修复了"missing required error components"错误，添加ErrorBoundary组件
-  - 解决"undefined is not valid JSON"错误，增强数据验证和安全解析
-  - 增强了API端点的数据验证，确保返回有效格式的数据
-  - 添加了更多错误处理和降级策略
-- **关键决策和解决方案**：
-  - 创建React错误边界组件捕获渲染错误
-  - 实现JSON数据安全序列化/反序列化处理
-  - 添加递归数据验证，确保格式正确
-  - 增强组件错误反馈机制
-- **技术栈**：React, TypeScript, Next.js, mind-elixir, ErrorBoundary
-- **修改文件**：
-  - components/error-boundary.tsx（新建）
-  - components/MindElixirMap.tsx
-  - app/api/mindmap-data/route.ts
-  - app/admin/mindmap-management/page.tsx
-  - app/mindmap/page.tsx
+要在新环境中设置思维导图功能，需完成以下步骤：
 
-## 错误处理机制升级说明
-项目现在具有更强大的错误处理机制：
-1. **组件层面**：使用ErrorBoundary捕获渲染错误，提供友好的错误UI并支持重试
-2. **数据层面**：增强数据验证和格式检查，防止传入无效数据
-3. **API层面**：在数据验证失败时自动使用默认数据，确保客户端始终获得有效响应
+1. 确保Supabase环境变量已配置：
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_KEY`
 
-这些改进大大提高了应用的稳定性和用户体验，使其在遇到问题时能够优雅降级而不是崩溃。 
+2. 执行表创建脚本：
+   - 在Supabase SQL编辑器中运行 `scripts/create-mindmaps-table.sql`
 
-## 主要功能和更新
-
-### 最新更新 (2024-05-04)
-
-- **思维导图OPML格式支持**: 完全重构了MindElixirMap组件，增加了对OPML格式文件的全面支持。现在系统可以正确解析和显示从常见思维导图软件导出的OPML文件。
-- **数据格式处理增强**: 添加了智能数据格式识别和转换功能，可以自动识别并处理多种数据格式，包括OPML处理API的返回结果、原生Mind-Elixir格式和单节点数据。
-- **错误处理机制**: 改进了错误处理机制，当数据格式错误或初始化失败时，会显示友好的错误信息而不是崩溃。
-- **动态加载与清理**: 优化了思维导图实例的创建和清理过程，避免内存泄漏和重复实例化问题。
+3. 上传默认思维导图：
+   - 访问思维导图管理页面 `/admin/mindmap-management`
+   - 上传一个默认的OPML文件并设置为活跃
 
 ## 思维导图功能
 
