@@ -3,12 +3,12 @@
 import * as React from "react"
 import { PanelLeft } from "lucide-react"
 
-import { useIsMobile } from "@/hooks/use-mobile"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { useIsMobile } from "../hooks/use-mobile"
+import { cn } from "../lib/utils"
+import { Button } from "./ui/button"
+import { Input } from "./ui/input"
+import { Sheet, SheetContent } from "./ui/sheet"
+import { TooltipProvider } from "./ui/tooltip"
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
