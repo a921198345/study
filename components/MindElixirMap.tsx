@@ -315,27 +315,55 @@ function safePatchMindElixir() {
       console.warn('JSON.parse收到无效输入，返回空对象', text);
       return {};
     }
-    
+
     try {
+      // 记录原始输入以便调试
+      console.log('JSON.parse输入预览:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+      
+      if (text.includes('null{') || text.includes('null"') || 
+          text.includes('nulltrue') || text.includes('nullfalse') || 
+          text.includes('null[')) {
+        console.warn('检测到严重的格式问题，进行深度修复');
+      }
+      
       // 对多种无效JSON模式进行处理
       let fixedText = text;
       
-      // 处理所有包含"undefined"的情况
+      // 1. 处理nodeData格式问题
+      if (fixedText.includes('"nodeData":null{')) {
+        fixedText = fixedText.replace(/"nodeData"\s*:null\s*{/g, '"nodeData":{');
+      }
+      
+      // 2. 处理特殊情况：nulltrue, nullfalse
+      fixedText = fixedText.replace(/null(true|false)/g, 'null,$1');
+      
+      // 3. 处理null后面直接跟[数组]的情况
+      fixedText = fixedText.replace(/null(\[)/g, 'null,$1');
+      
+      // 4. 处理null{和null"格式问题
+      fixedText = fixedText.replace(/null\s*{/g, 'null,{')
+                  .replace(/null\s*"/g, 'null,"');
+      
+      // 5. 处理所有包含"undefined"的情况
       if (fixedText.includes('"undefined"')) {
-        console.warn('检测到包含"undefined"的JSON字符串，进行修复');
         fixedText = fixedText.replace(/"undefined"/g, 'null');
       }
       
-      // 处理裸undefined（没有引号）
+      // 6. 处理裸undefined（没有引号）
       if (fixedText.includes('undefined')) {
-        console.warn('检测到裸undefined，进行修复');
         fixedText = fixedText.replace(/undefined/g, 'null');
       }
       
-      // 处理常见的错误格式，如多余的逗号
+      // 7. 完全替换所有null加内容的模式（更全面的匹配）
+      fixedText = fixedText.replace(/null([a-zA-Z0-9"\[{])/g, 'null,$1');
+      
+      // 8. 处理连续的逗号
+      fixedText = fixedText.replace(/,,+/g, ',');
+      
+      // 9. 处理常见的错误格式，如多余的逗号
       fixedText = fixedText.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
       
-      // 处理空属性（无值）
+      // 10. 处理空属性（无值）
       fixedText = fixedText.replace(/"[^"]+"\s*:/g, (match) => {
         if (match.endsWith(':')) {
           return match + 'null';
@@ -343,13 +371,46 @@ function safePatchMindElixir() {
         return match;
       });
       
-      // 尝试解析修复后的文本
+      // 11. 尝试解析修复后的文本
       try {
+        // 如果修复的文本与原文本不同，记录修复结果
+        if (fixedText !== text) {
+          console.log('JSON修复完成，修复后预览:', fixedText.substring(0, 50) + (fixedText.length > 50 ? '...' : ''));
+        }
+        
         return originalJSONParse(fixedText, ...args);
       } catch (innerError) {
-        // 如果还是失败，作为最后的尝试，返回一个空对象而非抛出错误
-        console.error('修复后的JSON仍无法解析，返回空对象', fixedText, innerError);
-        return {};
+        console.error('初次修复后JSON仍无法解析，尝试更激进的重构', innerError);
+        
+        try {
+          // 尝试提取基本结构并重新构建JSON
+          if (fixedText.includes('"nodeData"')) {
+            // 尝试重新构建节点数据结构
+            const minimal = {
+              nodeData: {
+                id: 'root',
+                topic: '思维导图',
+                expanded: true,
+                children: []
+              }
+            };
+            
+            // 尝试从错误数据中提取标题
+            const topicMatch = /"topic"\s*:\s*(?:null)?["']([^"']+)["']/i.exec(fixedText);
+            if (topicMatch && topicMatch[1]) {
+              minimal.nodeData.topic = topicMatch[1];
+            }
+            
+            console.warn('返回重构的最小有效数据结构');
+            return minimal;
+          } else {
+            // 如果不包含nodeData，则返回空对象
+            return {};
+          }
+        } catch (rebuildError) {
+          console.error('所有修复尝试都失败，返回空对象', rebuildError);
+          return {};
+        }
       }
     } catch (outerError) {
       // 捕获所有其他错误，返回空对象
