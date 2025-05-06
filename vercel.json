@@ -10,8 +10,7 @@
   "functions": {
     "app/api/admin/upload-opml/route.ts": {
       "maxDuration": 60,
-      "memory": 1024,
-      "maxPayloadSize": "10mb"
+      "memory": 1024
     }
   }
 } 
