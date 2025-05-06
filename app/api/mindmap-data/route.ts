@@ -111,7 +111,8 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
       
       // 生成唯一ID
       idCounter++;
-      const nodeId = `node-${path}-${idCounter}`;
+      // 避免在ID中使用可能导致JSON解析问题的特殊字符
+      const nodeId = `node-${path}-${idCounter}`.replace(/[^a-zA-Z0-9-_]/g, '-');
       
       // 提取标题（增强版 - 处理MuBu格式）
       let topic = '';
@@ -147,14 +148,23 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
         topic = '未命名节点';
       }
       
-      // 处理可能存在的HTML实体和特殊字符
-      topic = topic.replace(/&lt;/g, '<')
-                   .replace(/&gt;/g, '>')
-                   .replace(/&amp;/g, '&')
-                   .replace(/&quot;/g, '"')
-                   .replace(/&#39;/g, "'");
+      // 安全处理文本内容，移除可能导致JSON格式问题的字符
+      topic = String(topic)
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        // 处理可能破坏JSON格式的字符
+        .replace(/\\/g, '\\\\')  // 转义反斜杠
+        .replace(/"/g, '\\"')    // 转义双引号
+        .replace(/\n/g, '\\n')   // 转义换行符
+        .replace(/\r/g, '\\r')   // 转义回车符
+        .replace(/\t/g, '\\t')   // 转义制表符
+        .replace(/\f/g, '\\f')   // 转义换页符
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // 移除控制字符
       
-      // 创建节点
+      // 创建节点 - 确保所有值都是正确的数据类型
       const mindNode: any = {
         id: nodeId,
         topic: topic,
@@ -188,30 +198,62 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
     
     if (!rootNode.topic || rootNode.topic === '') {
       // 尝试从OPML标题获取根节点标题
-      rootNode.topic = result.opml.head?.title || '思维导图';
+      const title = result.opml.head?.title || '思维导图';
+      // 安全处理标题文本
+      rootNode.topic = String(title)
+        .replace(/\\/g, '\\\\')  // 转义反斜杠
+        .replace(/"/g, '\\"')    // 转义双引号
+        .replace(/\n/g, '\\n')   // 转义换行符
+        .replace(/\r/g, '\\r')   // 转义回车符
+        .replace(/\t/g, '\\t');  // 转义制表符
     }
     
-    // 返回标准格式
-    const result_data = { 
-      nodeData: rootNode 
+    // 确保expanded字段是布尔值
+    rootNode.expanded = rootNode.expanded === true || rootNode.expanded === 'true' ? true : false;
+    
+    // 确保children字段是数组
+    if (!Array.isArray(rootNode.children)) {
+      rootNode.children = [];
+    }
+    
+    // 创建安全的结果对象
+    const result_data = {
+      nodeData: {
+        id: rootNode.id,
+        topic: rootNode.topic,
+        expanded: Boolean(rootNode.expanded),
+        children: Array.isArray(rootNode.children) ? rootNode.children : []
+      }
     };
     
     // 记录一些节点示例以便调试
-    if (rootNode.children && rootNode.children.length > 0) {
-      console.log('示例子节点:', JSON.stringify({
-        firstChildTopic: rootNode.children[0].topic,
-        childrenCount: rootNode.children.length
-      }));
+    if (result_data.nodeData.children && result_data.nodeData.children.length > 0) {
+      try {
+        console.log('示例子节点:', JSON.stringify({
+          firstChildId: result_data.nodeData.children[0].id,
+          firstChildTopic: result_data.nodeData.children[0].topic,
+          childrenCount: result_data.nodeData.children.length
+        }));
+      } catch (jsonError) {
+        console.warn('示例子节点JSON序列化失败:', jsonError);
+      }
     }
     
     // 额外的验证检查
     if (!result_data.nodeData || !result_data.nodeData.id || !result_data.nodeData.topic) {
-      console.error('转换结果无效，缺少必要字段:', result_data);
+      console.error('转换结果无效，缺少必要字段');
       return DEFAULT_MINDMAP_DATA;
     }
     
-    console.log('OPML转换完成，结果预览:', 
-      JSON.stringify(result_data).substring(0, 200) + '...');
+    // 最终安全检查：尝试序列化和反序列化以验证JSON格式
+    try {
+      const jsonString = JSON.stringify(result_data);
+      JSON.parse(jsonString); // 如果这里抛出错误，说明JSON格式有问题
+      console.log('OPML转换完成，结果通过JSON验证');
+    } catch (jsonError) {
+      console.error('结果JSON格式无效，返回默认数据:', jsonError);
+      return DEFAULT_MINDMAP_DATA;
+    }
     
     return result_data;
   } catch (error) {
@@ -361,8 +403,38 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(DEFAULT_MINDMAP_DATA);
       }
       
-      console.log('数据格式转换完成，返回结果');
-      return NextResponse.json(formattedData);
+      console.log('数据格式转换完成，进行最终验证');
+      
+      // 最终安全检查 - 确保返回有效的JSON
+      try {
+        // 先验证数据结构
+        if (!formattedData || typeof formattedData !== 'object') {
+          console.warn('数据不是有效对象，使用默认数据');
+          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+        }
+        
+        // 验证nodeData结构
+        if (!formattedData.nodeData || typeof formattedData.nodeData !== 'object') {
+          console.warn('数据缺少nodeData结构，使用默认数据');
+          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+        }
+        
+        // 确保关键字段存在
+        if (!formattedData.nodeData.id || !formattedData.nodeData.topic) {
+          console.warn('nodeData缺少必须的id或topic字段，使用默认数据');
+          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+        }
+        
+        // 尝试序列化和解析，检查JSON格式是否有效
+        const jsonString = JSON.stringify(formattedData);
+        JSON.parse(jsonString);
+        
+        console.log('数据验证通过，返回结果');
+        return NextResponse.json(formattedData);
+      } catch (jsonError) {
+        console.error('最终JSON验证失败，返回默认数据:', jsonError);
+        return NextResponse.json(DEFAULT_MINDMAP_DATA);
+      }
     } catch (fileError) {
       console.error('读取思维导图文件失败:', fileError);
       // 文件读取失败，返回默认数据
