@@ -1,7 +1,7 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import {
   BarChart, 
   Calendar,
@@ -20,10 +20,10 @@ import {
   Medal,
   CheckCircle2
 } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import Image from "next/image"
 import Link from "next/link"
-import { Progress } from "@/components/ui/progress"
+import { Progress } from "../../components/ui/progress"
 import { useEffect, useState } from "react"
 
 export default function DashboardPage() {

@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import MindElixirMap from '@/components/MindElixirMap';
-import '@/styles/mind-elixir.css';
+import MindElixirMap from '../../components/MindElixirMap';
+import '../../styles/mind-elixir.css';
 
 // 示例数据
 const sampleData = {
