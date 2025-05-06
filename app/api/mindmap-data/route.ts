@@ -321,8 +321,9 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
     }
     
     // 最终安全检查：尝试序列化和反序列化以验证JSON格式
+    let jsonString = ''; // 在外部定义变量，确保在catch块中可访问
     try {
-      const jsonString = JSON.stringify(result_data);
+      jsonString = JSON.stringify(result_data);
       
       // 主动检查所有的响应数据是否包含格式问题，而不仅仅是特定模式
       console.warn('API响应前进行格式检查和修复');
@@ -525,7 +526,7 @@ export async function GET(request: NextRequest) {
       console.log('数据格式转换完成，进行最终验证');
       
       // 尝试序列化和解析，检查JSON格式是否有效
-      let jsonString;
+      let jsonString = ''; // 在外部定义变量，确保在catch块中可访问
       try {
         jsonString = JSON.stringify(formattedData);
         
