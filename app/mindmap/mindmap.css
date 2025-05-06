@@ -1,0 +1,93 @@
+/* 思维导图容器样式 */
+.mindmap-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* 思维导图节点悬停效果 */
+.mindmap-container .react-flow__node:hover {
+  z-index: 10;
+}
+
+/* 思维导图控制按钮样式 */
+.mindmap-container .react-flow__controls {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.mindmap-container .react-flow__controls-button {
+  border: none;
+  background-color: white;
+  color: #555;
+  transition: background-color 0.3s ease;
+}
+
+.mindmap-container .react-flow__controls-button:hover {
+  background-color: #f0f0f0;
+}
+
+/* 工具栏按钮 */
+.toolbar-button {
+  cursor: pointer;
+  border-radius: 50%;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background-color: transparent;
+}
+
+.toolbar-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* 确保工具栏按钮在最顶层 */
+.toolbar-buttons {
+  position: relative;
+  z-index: 1000;
+}
+
+/* 修复React Flow面板和控件在暗色模式的样式 */
+.dark .react-flow__controls-button {
+  background-color: #2d3748;
+  color: #e2e8f0;
+}
+
+.dark .react-flow__controls-button:hover {
+  background-color: #4a5568;
+}
+
+/* 增强节点连接线可见性 */
+.mindmap-container .react-flow__edge {
+  stroke-width: 2px;
+  stroke-opacity: 0.8;
+}
+
+.mindmap-container .react-flow__edge:hover {
+  stroke-width: 3px;
+  stroke-opacity: 1;
+}
+
+/* 确保面板按钮正常工作 */
+.react-flow__panel {
+  z-index: 10;
+  pointer-events: auto !important;
+}
+
+.react-flow__panel button {
+  pointer-events: auto !important;
+}
+
+/* 加载样式 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+} 
