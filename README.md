@@ -1255,3 +1255,20 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
 - **使用的技术栈**：TypeScript, Next.js
 - **修改了哪些文件**：
   - `/app/api/mindmap-data/route.ts`：修复了变量作用域问题
+
+## 会话总结 (2024-XX-XX)
+- **会话目的**：解决思维导图JSON格式特殊问题（nulltrue、null{和类似格式）
+- **完成的主要任务**：
+  1. 全面增强sanitizeJsonString函数，处理多种特殊格式问题
+  2. 增强节点ID生成规则，避免特殊字符和空格
+  3. 改进createRootNode函数，确保类型安全
+  4. 添加多层数据验证和转换机制
+  5. 实现JSON对象重构功能应对严重格式错误
+- **关键决策和解决方案**：
+  1. 使用精确的正则表达式识别和修复"nulltrue"、"null{"等特殊格式
+  2. 实现多层防御策略，包括预处理、转换验证、最终格式检查
+  3. 当数据严重损坏时，提取关键信息并重构一个合法的JSON结构
+  4. 严格类型检查和转换，确保所有字段类型符合要求
+- **使用的技术栈**：TypeScript, 正则表达式, Next.js API Routes, JSON序列化与验证
+- **修改了哪些文件**：
+  - `/app/api/mindmap-data/route.ts`：全面增强JSON格式处理能力
