@@ -1,72 +1,94 @@
 {
-  "id": "root",
-  "topic": "思维导图示例",
-  "expanded": true,
-  "children": [
-    {
-      "id": "1",
-      "topic": "第一章",
-      "expanded": true,
-      "children": [
-        {
-          "id": "1-1",
-          "topic": "第一节",
-          "expanded": true,
-          "children": [
-            {
-              "id": "1-1-1",
-              "topic": "知识点1",
-              "expanded": true
-            },
-            {
-              "id": "1-1-2",
-              "topic": "知识点2",
-              "expanded": true
-            }
-          ]
-        },
-        {
-          "id": "1-2",
-          "topic": "第二节",
-          "expanded": true,
-          "children": [
-            {
-              "id": "1-2-1",
-              "topic": "知识点3",
-              "expanded": true
-            },
-            {
-              "id": "1-2-2",
-              "topic": "知识点4",
-              "expanded": true
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "2",
-      "topic": "第二章",
-      "expanded": true,
-      "children": [
-        {
-          "id": "2-1",
-          "topic": "第一节",
-          "expanded": true,
-          "children": [
-            {
-              "id": "2-1-1",
-              "topic": "知识点5",
-              "expanded": true
-            },
-            {
-              "id": "2-1-2",
-              "topic": "知识点6",
-              "expanded": true
-            }
-          ]
-        }
-      ]
-    }
-  ]
+  "nodeData": {
+    "id": "root",
+    "topic": "我的学习计划",
+    "expanded": true,
+    "children": [
+      {
+        "id": "subject-1",
+        "topic": "数学",
+        "expanded": true,
+        "children": [
+          {
+            "id": "math-1",
+            "topic": "代数",
+            "expanded": true,
+            "children": [
+              {
+                "id": "algebra-1",
+                "topic": "线性方程组"
+              },
+              {
+                "id": "algebra-2",
+                "topic": "多项式函数"
+              }
+            ]
+          },
+          {
+            "id": "math-2",
+            "topic": "几何",
+            "children": [
+              {
+                "id": "geometry-1",
+                "topic": "三角函数"
+              },
+              {
+                "id": "geometry-2",
+                "topic": "圆锥曲线"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "subject-2",
+        "topic": "英语",
+        "expanded": true,
+        "children": [
+          {
+            "id": "english-1",
+            "topic": "语法",
+            "children": [
+              {
+                "id": "grammar-1",
+                "topic": "时态"
+              },
+              {
+                "id": "grammar-2",
+                "topic": "从句"
+              }
+            ]
+          },
+          {
+            "id": "english-2",
+            "topic": "词汇",
+            "children": [
+              {
+                "id": "vocab-1",
+                "topic": "常用词汇"
+              },
+              {
+                "id": "vocab-2",
+                "topic": "学术词汇"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "subject-3",
+        "topic": "历史",
+        "children": [
+          {
+            "id": "history-1",
+            "topic": "中国历史"
+          },
+          {
+            "id": "history-2",
+            "topic": "世界历史"
+          }
+        ]
+      }
+    ]
+  }
 } 

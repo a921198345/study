@@ -45,21 +45,54 @@ const DEFAULT_MIND_DATA = {
   }
 };
 
+// 判断数据是否有效
+const isValidData = (data: any): boolean => {
+  // 检查数据是否存在
+  if (!data) return false;
+  
+  // 检查是否是对象
+  if (typeof data !== 'object') return false;
+
+  // 如果是数组，至少应该有一个元素
+  if (Array.isArray(data)) {
+    return data.length > 0 && isValidData(data[0]);
+  }
+
+  // nodeData嵌套情况
+  if (data.nodeData) {
+    return isValidData(data.nodeData);
+  }
+
+  // 基本节点结构检查
+  return Boolean(data.id) && Boolean(data.topic);
+};
+
 // 处理OPML格式的数据转换为Mind Elixir格式
 const convertOpmlToMindElixir = (data: any) => {
-  // 如果没有数据，使用默认数据
-  if (!data) {
-    console.warn('未提供数据，使用默认思维导图');
-    return DEFAULT_MIND_DATA;
-  }
-  
   try {
+    // 如果没有数据，使用默认数据
+    if (!data) {
+      console.warn('未提供数据，使用默认思维导图');
+      return DEFAULT_MIND_DATA;
+    }
+
+    // 避免JSON序列化错误
+    // 在这里尝试序列化再解析，确保没有循环引用
+    let sanitizedData;
+    try {
+      const dataStr = JSON.stringify(data);
+      sanitizedData = JSON.parse(dataStr);
+    } catch (jsonError) {
+      console.error('数据序列化失败，可能存在循环引用:', jsonError);
+      return DEFAULT_MIND_DATA;
+    }
+    
     // 检查是否是API返回的OPML处理结果
-    if (data.tree && Array.isArray(data.tree)) {
+    if (sanitizedData.tree && Array.isArray(sanitizedData.tree)) {
       console.log('检测到API处理的OPML数据，进行转换');
       
       // 获取第一个根节点作为主题
-      const firstNode = data.tree[0] || { id: 'root', title: '思维导图', children: [] };
+      const firstNode = sanitizedData.tree[0] || { id: 'root', title: '思维导图', children: [] };
       
       // 递归转换节点格式
       const convertNode = (node: any) => {
@@ -91,20 +124,27 @@ const convertOpmlToMindElixir = (data: any) => {
     }
     
     // 检查是否已经是Mind-Elixir格式
-    if (data.nodeData) {
+    if (sanitizedData.nodeData) {
       console.log('检测到Mind-Elixir格式数据');
-      return data;
+      
+      // 进一步验证nodeData结构
+      if (!sanitizedData.nodeData.id || !sanitizedData.nodeData.topic) {
+        console.warn('Mind-Elixir格式数据不完整');
+        return DEFAULT_MIND_DATA;
+      }
+      
+      return sanitizedData;
     }
     
     // 检查是否是节点数据（直接的根节点）
-    if (data.id && data.topic) {
+    if (sanitizedData.id && sanitizedData.topic) {
       console.log('检测到单一节点数据，构建Mind-Elixir结构');
       return {
         nodeData: {
-          id: String(data.id),
-          topic: String(data.topic),
+          id: String(sanitizedData.id),
+          topic: String(sanitizedData.topic),
           expanded: true,
-          children: Array.isArray(data.children) ? data.children : []
+          children: Array.isArray(sanitizedData.children) ? sanitizedData.children : []
         }
       };
     }
@@ -113,7 +153,7 @@ const convertOpmlToMindElixir = (data: any) => {
     console.warn('未识别的数据格式，尝试提取有用信息');
     
     // 如果数据是数组，使用第一个元素
-    const sourceData = Array.isArray(data) ? data[0] : data;
+    const sourceData = Array.isArray(sanitizedData) ? sanitizedData[0] : sanitizedData;
     
     // 构建基本的Mind-Elixir数据
     const nodeData = {
@@ -194,7 +234,7 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
     
     // 在客户端动态导入MindElixir
     const loadMindElixir = async () => {
-      setError('');
+      setError(null);
       
       if (!containerRef.current) {
         console.error("容器元素不存在");
@@ -203,12 +243,19 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
       }
       
       try {
+        // 检查数据有效性
+        if (!isValidData(data)) {
+          console.warn('提供的数据无效，使用默认数据', data);
+        }
+        
         // 动态导入MindElixir
         const MindElixir = await import('mind-elixir');
         const ME = MindElixir.default;
         
-        // 准备数据
-        let mindElixirData = convertOpmlToMindElixir(data);
+        // 准备数据 - 确保转换成Mind-Elixir格式
+        console.log('原始数据:', data);
+        const mindElixirData = convertOpmlToMindElixir(data);
+        console.log('转换后的数据:', mindElixirData);
         
         // 配置MindElixir选项
         const options = {
@@ -249,43 +296,40 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
     
     // 组件卸载时清理
     return () => {
-      if (mindElixirRef.current && mindElixirRef.current.bus) {
+      if (mindElixirRef.current) {
         try {
-          // 清理事件监听器等资源
-          mindElixirRef.current.bus.removeAllListeners();
-        } catch (error) {
-          console.error('清理事件监听器失败:', error);
+          if (mindElixirRef.current.bus) {
+            mindElixirRef.current.bus.removeAllListeners();
+          }
+          mindElixirRef.current = null;
+        } catch (e) {
+          console.error('清理时出错:', e);
         }
       }
     };
   }, [data, direction, draggable, editable, contextMenu, theme, isClient]);
-
-  // 获取主题颜色
+  
+  // 根据主题名称获取颜色
   const getThemeColor = (themeName: string): string => {
     switch (themeName) {
-      case 'dark': return '#34495e';
-      case 'green': return '#27ae60';
-      case 'purple': return '#8e44ad';
-      default: return '#3498db';
+      case 'dark':
+        return '#333333';
+      case 'green':
+        return '#2ecc71';
+      case 'purple':
+        return '#9b59b6';
+      case 'primary':
+      default:
+        return '#4a89ff';
     }
   };
-
-  // 如果不是客户端环境，显示加载状态或空白内容
-  if (!isClient) {
-    return (
-      <div className={`mind-elixir-container ${className}`} style={{ width, height }}>
-        <div className="flex items-center justify-center h-full">
-          <p>加载思维导图中...</p>
-        </div>
-      </div>
-    );
-  }
-
+  
+  // 显示错误信息或思维导图容器
   return (
-    <div className={`mind-elixir-container ${className}`} style={{ width, height }}>
+    <div className={`mind-elixir-container ${className}`} style={{ width, height, position: 'relative' }}>
       {error ? (
-        <div className="error-message p-4 bg-red-100 text-red-800 rounded">
-          {error}
+        <div className="flex items-center justify-center h-full bg-red-50 p-4 rounded-md">
+          <div className="text-red-500">{error}</div>
         </div>
       ) : (
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />

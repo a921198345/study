@@ -26,7 +26,14 @@ const DEFAULT_MINDMAP_DATA = {
 
 // 验证并转换API返回的数据
 const validateAndTransform = (data: any) => {
-  if (!data) return DEFAULT_MINDMAP_DATA;
+  // 记录数据以便调试
+  console.log('服务器返回的原始数据:', data);
+  
+  // 检查数据是否为undefined或null
+  if (!data) {
+    console.warn('数据为undefined或null，使用默认数据');
+    return DEFAULT_MINDMAP_DATA;
+  }
   
   // 检查数据是否为有效对象
   if (typeof data !== 'object') {
@@ -36,6 +43,11 @@ const validateAndTransform = (data: any) => {
   
   // 如果数据已经包含nodeData字段(符合MindElixir格式)
   if (data.nodeData && typeof data.nodeData === 'object') {
+    // 确保nodeData有基本的结构
+    if (!data.nodeData.id || !data.nodeData.topic) {
+      console.warn('nodeData结构不完整:', data.nodeData);
+      return DEFAULT_MINDMAP_DATA;
+    }
     return data;
   }
   
@@ -49,7 +61,7 @@ const validateAndTransform = (data: any) => {
     };
   }
   
-  // 返回默认数据
+  // 数据无法识别，返回默认数据
   console.warn('不支持的数据格式:', data);
   return DEFAULT_MINDMAP_DATA;
 };
@@ -64,28 +76,41 @@ export default function MindMapPage() {
   // 从API加载思维导图数据
   useEffect(() => {
     setLoading(true);
-    fetch('/api/mindmap-data')
-      .then(res => {
+    
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/mindmap-data');
+        
         if (!res.ok) {
           throw new Error(`加载思维导图失败: ${res.status} ${res.statusText}`);
         }
-        return res.json();
-      })
-      .then(data => {
+        
+        // 确保服务器返回的是JSON格式
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error(`无效的响应类型: ${contentType}`);
+        }
+        
+        const data = await res.json();
         console.log('API返回的原始数据:', data);
+        
         // 验证并转换数据
         const validData = validateAndTransform(data);
         console.log('验证后的数据:', validData);
+        
         setMindMapData(validData);
-        setLoading(false);
-      })
-      .catch(err => {
+        setError(null);
+      } catch (err) {
         console.error('加载思维导图出错:', err);
-        setError(err.message || '加载思维导图时发生错误');
+        setError(err instanceof Error ? err.message : '加载思维导图时发生错误');
         // 出错时使用默认数据
         setMindMapData(DEFAULT_MINDMAP_DATA);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    
+    fetchData();
   }, []);
 
   // 切换视图模式
@@ -143,7 +168,7 @@ export default function MindMapPage() {
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin h-10 w-10 border-4 border-blue-500 rounded-full border-t-transparent"></div>
-                </div>
+          </div>
         ) : error ? (
           <div className="flex items-center justify-center h-full bg-red-50 p-4">
             <div className="text-red-500">{error}</div>
