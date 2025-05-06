@@ -6,7 +6,7 @@ import '../../styles/mind-elixir.css';
 import ErrorBoundary from '../../components/error-boundary';
 
 // 动态导入组件以避免SSR问题
-const MindElixirMap = dynamic(() => import('../../components/MindElixirMap'), { ssr: false });
+const ReactFlowMap = dynamic(() => import('../../components/ReactFlowMap'), { ssr: false });
 
 // 默认思维导图数据 - 即使API无法获取数据也能显示
 const DEFAULT_MINDMAP_DATA = {
@@ -249,137 +249,138 @@ export default function MindMapPage() {
             const textContent = await res.text();
             console.warn('非JSON响应，尝试将文本解析为JSON:', textContent.substring(0, 100) + '...');
             
-            // 尝试将文本内容解析为JSON，同时处理"undefined"字符串
-            try {
-              if (textContent.includes('"undefined"')) {
-                console.warn('文本内容包含"undefined"字符串，尝试替换');
-                const fixedContent = textContent.replace(/"undefined"/g, 'null');
-                data = JSON.parse(fixedContent);
-              } else {
+            // 如果响应是字符串，尝试将其解析为JSON
+            if (textContent.trim().startsWith('{') || textContent.trim().startsWith('[')) {
+              try {
                 data = JSON.parse(textContent);
+                console.log('成功将文本响应解析为JSON');
+              } catch (parseError) {
+                console.error('将文本解析为JSON失败:', parseError);
+                throw new Error(`文本解析为JSON失败: ${parseError instanceof Error ? parseError.message : '未知错误'}`);
               }
-              console.log('成功将文本内容解析为JSON');
-            } catch (parseErr) {
-              console.error('无法将文本内容解析为JSON:', parseErr);
-              throw new Error(`非JSON响应: ${contentType}`);
+            } else {
+              // 如果不是JSON格式，尝试作为纯文本处理
+              console.warn('响应不是JSON格式，按纯文本处理');
+              data = { text: textContent };
             }
           } catch (textError) {
-            console.error('读取响应内容失败:', textError);
-            throw new Error(`读取响应失败: ${textError instanceof Error ? textError.message : '未知错误'}`);
+            console.error('读取响应文本失败:', textError);
+            throw new Error(`读取响应文本失败: ${textError instanceof Error ? textError.message : '未知错误'}`);
           }
         }
         
-        console.log('API返回的原始数据类型:', typeof data);
+        // 验证和转换数据
+        const transformedData = validateAndTransform(data);
+        console.log('数据验证和转换完成，准备更新状态');
         
-        // 验证并转换数据
-        const validData = validateAndTransform(data);
-        console.log('验证后的数据结构:', Object.keys(validData));
-        
-        if (validData.nodeData) {
-          console.log('nodeData.id:', validData.nodeData.id);
-          console.log('nodeData.topic:', validData.nodeData.topic?.substring(0, 30));
-          console.log('children数量:', Array.isArray(validData.nodeData.children) ? validData.nodeData.children.length : '非数组');
+        // 检查data是否有nodeData属性
+        if (!transformedData.nodeData) {
+          console.warn('转换后的数据缺少nodeData属性');
         }
         
-        setMindMapData(validData);
-        setError(null);
+        // 更新状态
+        setMindMapData(transformedData);
+        setLoading(false);
       } catch (err) {
-        console.error('加载思维导图出错:', err);
-        setError(err instanceof Error ? err.message : '加载思维导图时发生错误');
-        // 出错时使用默认数据
+        console.error('思维导图数据加载失败:', err);
+        setError(`加载思维导图失败: ${err instanceof Error ? err.message : '未知错误'}`);
+        // 使用默认数据
         setMindMapData(DEFAULT_MINDMAP_DATA);
-      } finally {
         setLoading(false);
       }
     };
     
     fetchData();
   }, []);
-
-  // 切换视图模式
+  
+  // 切换视图模式（右侧布局/中心布局）
   const toggleViewMode = () => {
-    setViewMode(prevMode => prevMode === 'right' ? 'side' : 'right');
+    setViewMode(prev => prev === 'right' ? 'side' : 'right');
   };
-
-  // 切换主题
+  
+  // 更改主题颜色
   const changeTheme = (newTheme: 'primary' | 'dark' | 'green' | 'purple') => {
     setTheme(newTheme);
   };
   
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">思维导图</h1>
-      
-      <div className="flex flex-wrap gap-2 mb-4">
-          <button 
-          onClick={toggleViewMode}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-          >
-          {viewMode === 'right' ? '切换到居中布局' : '切换到居右布局'}
-          </button>
-        
-          <button 
-          onClick={() => changeTheme('primary')}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-          >
-          默认主题
-          </button>
-        
-          <button 
-          onClick={() => changeTheme('dark')}
-          className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 transition"
-          >
-          深色主题
-          </button>
-        
-          <button 
-          onClick={() => changeTheme('green')}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
-          >
-          绿色主题
-          </button>
-        
-          <button
-          onClick={() => changeTheme('purple')}
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition"
-          >
-          紫色主题
-          </button>
-      </div>
-      
-      <div className="border rounded-lg overflow-hidden" style={{ height: '75vh' }}>
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin h-10 w-10 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* 标题栏 */}
+      <header className="bg-white shadow-sm p-4">
+        <div className="container mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-semibold text-gray-800">思维导图</h1>
+          
+          {/* 主题选择和布局控制 */}
+          <div className="flex space-x-2">
+            <button
+              onClick={() => changeTheme('primary')}
+              className={`px-3 py-1 rounded ${theme === 'primary' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              默认主题
+            </button>
+            <button
+              onClick={() => changeTheme('dark')}
+              className={`px-3 py-1 rounded ${theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              深色主题
+            </button>
+            <button
+              onClick={() => changeTheme('green')}
+              className={`px-3 py-1 rounded ${theme === 'green' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              绿色主题
+            </button>
+            <button
+              onClick={() => changeTheme('purple')}
+              className={`px-3 py-1 rounded ${theme === 'purple' ? 'bg-purple-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              紫色主题
+            </button>
+            <button
+              onClick={toggleViewMode}
+              className="px-3 py-1 bg-gray-700 text-white rounded"
+            >
+              切换到{viewMode === 'right' ? '居中' : '右侧'}布局
+            </button>
           </div>
-        ) : error ? (
-          <div className="flex items-center justify-center h-full bg-red-50 p-4">
-            <div className="text-red-500">{error}</div>
+        </div>
+      </header>
+      
+      {/* 主要内容区域 */}
+      <main className="flex-grow container mx-auto p-4">
+        {error ? (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+            <h2 className="text-lg font-medium mb-2">加载错误</h2>
+            <p>{error}</p>
+          </div>
+        ) : loading ? (
+          <div className="flex justify-center items-center h-96">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         ) : (
-          <ErrorBoundary fallback={<div className="p-4 text-red-500">思维导图渲染错误</div>}>
-            <MindElixirMap 
-              data={mindMapData} 
-              direction={viewMode}
-              draggable={true}
-              editable={false}
-              contextMenu={false}
-              theme={theme}
-              height="100%"
-              width="100%"
-            />
+          <ErrorBoundary>
+            <div className="bg-white border rounded-lg shadow-sm overflow-hidden" style={{ height: '80vh' }}>
+              <ReactFlowMap
+                data={mindMapData}
+                direction={viewMode}
+                theme={theme}
+                draggable={true}
+                editable={false}
+                contextMenu={false}
+                height="100%"
+                width="100%"
+              />
+            </div>
           </ErrorBoundary>
         )}
-      </div>
+      </main>
       
-      <div className="mt-4 text-sm text-gray-500">
-        <p>操作说明：</p>
-        <ul className="list-disc pl-5">
-          <li>鼠标滚轮：缩放思维导图</li>
-          <li>按住鼠标左键：拖动思维导图</li>
-          <li>点击节点：展开/折叠子节点</li>
-        </ul>
-      </div>
+      {/* 页脚 */}
+      <footer className="bg-white border-t py-4">
+        <div className="container mx-auto text-center text-gray-500 text-sm">
+          思维导图 &copy; {new Date().getFullYear()}
+        </div>
+      </footer>
     </div>
   );
 } 
