@@ -538,6 +538,8 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
               return;
             } catch (minimalError) {
               console.error('极简数据初始化失败:', minimalError);
+              // 确保恢复原始JSON.parse方法
+              unpatchJSON();
               
               // 尝试静态替代方案
               try {
@@ -560,13 +562,13 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
                 }
               } catch (finalError) {
                 console.error('所有方法都失败:', finalError);
+                unpatchJSON(); // 确保在所有错误路径中恢复
                 setError('无法显示思维导图');
               }
-            } catch (fallbackError) {
-              console.error('回退方案失败:', fallbackError);
             }
           } catch (outerError) {
             console.error('回退机制初始化失败:', outerError);
+            unpatchJSON(); // 确保在最外层错误处理中也恢复
             setError(`初始化失败: ${outerError instanceof Error ? outerError.message : '未知错误'}`);
           }
         }
