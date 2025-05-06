@@ -455,11 +455,51 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
             options.data = JSON.parse(options.data);
           }
           
+          // 核心修复：直接使用对象而不是JSON
+          // 深度清理Mind-Elixir数据，确保没有'undefined'字符串
+          let cleanData = sanitizeForMindElixir(mindElixirData);
+          
+          // 检查是否有nodeData属性，如果没有就添加一个基本结构
+          if (!cleanData || !cleanData.nodeData) {
+            console.warn('数据缺少nodeData结构，使用默认数据');
+            cleanData = DEFAULT_MIND_DATA;
+          }
+          
+          // 重新设置options，使用绝对安全的数据
+          options.data = cleanData;
+          
+          // 防止Mind-Elixir尝试将settings.data作为JSON字符串处理（这是导致错误的关键）
+          // 重要的一点是将data作为对象引用而不是序列化字符串传递给Mind-Elixir
           mindElixirRef.current = new ME(options);
           
-          // 初始化思维导图
-          mindElixirRef.current.init();
-          console.log('MindElixir初始化成功');
+          // 使用try-catch特别包装init调用
+          try {
+            // 这是发生问题的关键点
+            mindElixirRef.current.init();
+            console.log('MindElixir初始化成功');
+          } catch (initError) {
+            console.error('init调用失败，尝试第二种方法', initError);
+            
+            // 如果常规初始化失败，尝试修改Mind-Elixir实例内部的数据属性
+            try {
+              // 这是一个黑客方法，直接修改Mind-Elixir实例的内部数据
+              // 使其不需要再次解析JSON
+              if (mindElixirRef.current && mindElixirRef.current.hasOwnProperty('data')) {
+                console.log('尝试直接设置实例数据');
+                if (typeof mindElixirRef.current.data === 'string' && 
+                    mindElixirRef.current.data.includes('undefined')) {
+                  mindElixirRef.current.data = JSON.stringify(cleanData);
+                }
+                mindElixirRef.current.init();
+                console.log('通过直接修改实例数据成功初始化');
+              } else {
+                throw new Error('找不到Mind-Elixir实例的data属性');
+              }
+            } catch (hackError) {
+              console.error('所有初始化方法都失败', hackError);
+              throw initError; // 抛出原始错误供外部处理
+            }
+          }
           
           // 设置只读模式（如果不可编辑）
           if (!editable && mindElixirRef.current.operation) {
@@ -475,17 +515,41 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
             console.error('转换后的数据:', mindElixirData);
             console.error('清理后的数据:', options.data);
             
-            // 尝试加载默认数据
+            // 最后的尝试 - 创建一个全新的、非常简单的数据结构
             try {
-              console.log('尝试使用默认数据初始化');
-              options.data = DEFAULT_MIND_DATA;
-              mindElixirRef.current = new ME(options);
+              console.log('尝试使用极简数据初始化');
+              
+              // 创建最简单的有效数据结构
+              const absoluteMinimalData = {
+                nodeData: {
+                  id: 'root',
+                  topic: '思维导图',
+                  expanded: true,
+                  children: []
+                }
+              };
+              
+              // 创建新选项对象，避免原对象中的潜在问题
+              const newOptions = {
+                el: containerRef.current!,
+                direction: direction === 'right' ? 1 : 2,
+                draggable: true,
+                contextMenu: false,
+                allowUndo: false,
+                overflowHidden: false,
+                mainColor: getThemeColor(theme),
+                mainFontColor: '#fff',
+                data: absoluteMinimalData
+              };
+              
+              // 创建新实例
+              mindElixirRef.current = new ME(newOptions);
               mindElixirRef.current.init();
-              console.log('使用默认数据初始化成功');
-              setError('原始数据有问题，已加载默认思维导图');
+              console.log('使用极简数据初始化成功');
+              setError('原始数据有问题，已加载简化思维导图');
               return;
-            } catch (fallbackError) {
-              console.error('使用默认数据初始化也失败:', fallbackError);
+            } catch (minimalError) {
+              console.error('使用极简数据初始化也失败:', minimalError);
             }
           }
           setError(`初始化失败: ${errorMessage}`);
