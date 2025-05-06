@@ -87,6 +87,37 @@ const convertOpmlToMindElixir = (data: any) => {
       return DEFAULT_MIND_DATA;
     }
     
+    // 确保所有节点都有唯一ID的函数
+    const ensureNodeIds = (node: any, prefix = 'node') => {
+      if (!node) return null;
+      
+      // 确保节点有ID
+      if (!node.id) {
+        node.id = `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
+      } else {
+        node.id = String(node.id);
+      }
+      
+      // 递归处理子节点
+      if (node.children && Array.isArray(node.children)) {
+        node.children = node.children.map((child: any, index: number) => 
+          ensureNodeIds(child, `${prefix}-${index}`)
+        );
+      }
+      
+      return node;
+    };
+    
+    // 检查是否已经是Mind-Elixir格式
+    if (sanitizedData.nodeData) {
+      console.log('检测到Mind-Elixir格式数据');
+      
+      // 确保所有节点都有ID
+      sanitizedData.nodeData = ensureNodeIds(sanitizedData.nodeData);
+      
+      return sanitizedData;
+    }
+    
     // 检查是否是API返回的OPML处理结果
     if (sanitizedData.tree && Array.isArray(sanitizedData.tree)) {
       console.log('检测到API处理的OPML数据，进行转换');
@@ -95,13 +126,13 @@ const convertOpmlToMindElixir = (data: any) => {
       const firstNode = sanitizedData.tree[0] || { id: 'root', title: '思维导图', children: [] };
       
       // 递归转换节点格式
-      const convertNode = (node: any) => {
+      const convertNode = (node: any, index = 0) => {
         if (!node) return null;
         
         // 构建符合Mind-Elixir要求的节点
         const mindNode = {
-          id: String(node.id || `node-${Math.random().toString(36).substr(2, 5)}`),
-          topic: String(node.title || node.text || '节点'),
+          id: String(node.id || `node-${index}-${Math.random().toString(36).substr(2, 5)}`),
+          topic: String(node.title || node.text || node.topic || '节点'),
           expanded: true,
           children: []
         };
@@ -110,7 +141,7 @@ const convertOpmlToMindElixir = (data: any) => {
         if (node.children && Array.isArray(node.children) && node.children.length > 0) {
           mindNode.children = node.children
             .filter((child: any) => child)
-            .map(convertNode)
+            .map((child: any, idx: number) => convertNode(child, idx))
             .filter((child: any) => child); // 过滤掉null结果
         }
         
@@ -123,30 +154,26 @@ const convertOpmlToMindElixir = (data: any) => {
       };
     }
     
-    // 检查是否已经是Mind-Elixir格式
-    if (sanitizedData.nodeData) {
-      console.log('检测到Mind-Elixir格式数据');
-      
-      // 进一步验证nodeData结构
-      if (!sanitizedData.nodeData.id || !sanitizedData.nodeData.topic) {
-        console.warn('Mind-Elixir格式数据不完整');
-        return DEFAULT_MIND_DATA;
-      }
-      
-      return sanitizedData;
-    }
-    
     // 检查是否是节点数据（直接的根节点）
     if (sanitizedData.id && sanitizedData.topic) {
       console.log('检测到单一节点数据，构建Mind-Elixir结构');
       return {
-        nodeData: {
-          id: String(sanitizedData.id),
-          topic: String(sanitizedData.topic),
-          expanded: true,
-          children: Array.isArray(sanitizedData.children) ? sanitizedData.children : []
-        }
+        nodeData: ensureNodeIds(sanitizedData)
       };
+    }
+    
+    // 处理可能缺少ID的情况（如当前的民法文件）
+    if (sanitizedData.topic) {
+      console.log('检测到带主题但可能缺少ID的数据，补充ID');
+      
+      const processedData = ensureNodeIds({
+        id: 'root',
+        topic: sanitizedData.topic,
+        expanded: true,
+        children: sanitizedData.children || []
+      });
+      
+      return { nodeData: processedData };
     }
     
     // 其他情况，尝试从数据中提取有用信息
@@ -175,8 +202,8 @@ const convertOpmlToMindElixir = (data: any) => {
       
       // 子节点
       if (sourceData.children && Array.isArray(sourceData.children)) {
-        nodeData.children = sourceData.children.map((child: any) => ({
-          id: String(child.id || `node-${Math.random().toString(36).substr(2, 5)}`),
+        nodeData.children = sourceData.children.map((child: any, index: number) => ({
+          id: String(child.id || `node-${index}-${Math.random().toString(36).substr(2, 5)}`),
           topic: String(child.topic || child.title || child.text || '子节点'),
           expanded: true
         }));
@@ -257,6 +284,25 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         const mindElixirData = convertOpmlToMindElixir(data);
         console.log('转换后的数据:', mindElixirData);
         
+        // 添加调试信息，在初始化前检查数据结构
+        if (!mindElixirData || !mindElixirData.nodeData) {
+          console.error('转换后的数据缺少nodeData结构', mindElixirData);
+          setError('初始化失败: 数据结构无效 (缺少nodeData)');
+          return;
+        }
+        
+        if (!mindElixirData.nodeData.id) {
+          console.error('根节点缺少ID', mindElixirData.nodeData);
+          setError('初始化失败: 根节点缺少ID');
+          return;
+        }
+        
+        if (!mindElixirData.nodeData.topic) {
+          console.error('根节点缺少主题', mindElixirData.nodeData);
+          setError('初始化失败: 根节点缺少topic');
+          return;
+        }
+        
         // 配置MindElixir选项
         const options = {
           el: containerRef.current!, // 使用断言确保非空
@@ -273,10 +319,12 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         
         // 创建MindElixir实例
         try {
+          console.log('开始初始化MindElixir实例...');
           mindElixirRef.current = new ME(options);
           
           // 初始化思维导图
           mindElixirRef.current.init();
+          console.log('MindElixir初始化成功');
           
           // 设置只读模式（如果不可编辑）
           if (!editable && mindElixirRef.current.operation) {
@@ -284,7 +332,12 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
           }
         } catch (initError) {
           console.error('MindElixir初始化失败:', initError);
-          setError(`初始化失败: ${initError instanceof Error ? initError.message : '未知错误'}`);
+          let errorMessage = initError instanceof Error ? initError.message : '未知错误';
+          // 提供更详细的错误信息
+          if (errorMessage.includes('undefined') && errorMessage.includes('JSON')) {
+            errorMessage = `"undefined" is not valid JSON - 请检查数据格式。有效nodeData示例: { nodeData: { id: "root", topic: "主题", children: [...] } }`;
+          }
+          setError(`初始化失败: ${errorMessage}`);
         }
       } catch (err) {
         console.error('加载思维导图库出错:', err);
@@ -328,8 +381,11 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
   return (
     <div className={`mind-elixir-container ${className}`} style={{ width, height, position: 'relative' }}>
       {error ? (
-        <div className="flex items-center justify-center h-full bg-red-50 p-4 rounded-md">
-          <div className="text-red-500">{error}</div>
+        <div className="flex flex-col items-center justify-center h-full bg-red-50 p-4 rounded-md">
+          <div className="text-red-500 mb-2 font-medium">错误: {error}</div>
+          <div className="text-sm text-gray-600">
+            尝试刷新页面或检查数据格式。如果问题持续，请联系管理员。
+          </div>
         </div>
       ) : (
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
