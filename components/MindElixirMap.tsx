@@ -537,18 +537,12 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
               setError('原始数据有问题，已加载简化思维导图');
               return;
             } catch (minimalError) {
-              // 确保恢复原始方法
-              unpatchJSON();
+              console.error('极简数据初始化失败:', minimalError);
               
-              console.error('使用极简数据初始化也失败:', minimalError);
-              
-              // 最后的回退方案 - 完全静态思维导图
+              // 尝试静态替代方案
               try {
-                console.log('尝试使用完全静态的思维导图作为替代');
-                
-                // 清空容器
+                console.log('尝试使用静态HTML替代');
                 if (containerRef.current) {
-                  // 显示静态替代UI
                   containerRef.current.innerHTML = `
                     <div style="padding: 20px; text-align: center;">
                       <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333;">
@@ -557,28 +551,23 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
                       <div style="border: 1px solid #ddd; padding: 10px; display: inline-block; text-align: left;">
                         <ul style="list-style-type: none; padding-left: 0;">
                           <li style="margin-bottom: 8px;">• 根节点</li>
-                          <li style="margin-left: 20px; margin-bottom: 5px;">• 子节点 1</li>
-                          <li style="margin-left: 20px; margin-bottom: 5px;">• 子节点 2</li>
-                          <li style="margin-left: 20px; margin-bottom: 5px;">• 子节点 3</li>
+                          <li style="margin-left: 20px;">• 子节点</li>
                         </ul>
-                      </div>
-                      <div style="margin-top: 15px; color: #777; font-size: 13px;">
-                        (思维导图加载失败，显示替代内容)
                       </div>
                     </div>
                   `;
+                  setError('显示静态版思维导图');
                 }
-                
-                setError('思维导图无法加载，显示静态内容');
-                return;
-              } catch (e) {
-                console.error('所有尝试都失败:', e);
+              } catch (finalError) {
+                console.error('所有方法都失败:', finalError);
+                setError('无法显示思维导图');
               }
             } catch (fallbackError) {
               console.error('回退方案失败:', fallbackError);
             }
-          } catch (fallbackError) {
-            console.error('回退方案失败:', fallbackError);
+          } catch (outerError) {
+            console.error('回退机制初始化失败:', outerError);
+            setError(`初始化失败: ${outerError instanceof Error ? outerError.message : '未知错误'}`);
           }
         }
         
