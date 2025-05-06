@@ -83,7 +83,13 @@ function detectFileFormat(content: string): 'json' | 'xml' | 'unknown' {
 async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
   try {
     // 解析XML内容
-    const result = await parseStringPromise(xmlContent, { explicitArray: false });
+    const result = await parseStringPromise(xmlContent, { 
+      explicitArray: false,
+      trim: true,
+      normalize: true
+    });
+    
+    console.log('OPML解析结果结构:', JSON.stringify(result).substring(0, 200) + '...');
     
     // 检查是否是有效的OPML格式
     if (!result.opml || !result.opml.body || !result.opml.body.outline) {
@@ -96,40 +102,89 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
       ? result.opml.body.outline[0] 
       : result.opml.body.outline;
     
+    // 记录ID递增
+    let idCounter = 0;
+    
     // 递归将OPML转为Mind-Elixir格式
-    function convertNode(node: any, index: number = 0): any {
+    function convertNode(node: any, index: number = 0, path: string = ''): any {
       if (!node) return null;
       
-      // 提取标题
-      const topic = node.text || node.title || node._text || node._title || '未命名节点';
+      // 生成唯一ID
+      idCounter++;
+      const nodeId = `node-${path}-${idCounter}`;
+      
+      // 提取标题（优先使用text属性，其次是_text或title属性）
+      let topic = '';
+      if (node.text) {
+        topic = String(node.text);
+      } else if (node._text) {
+        topic = String(node._text);
+      } else if (node.title) {
+        topic = String(node.title);
+      } else if (node._title) {
+        topic = String(node._title); 
+      } else {
+        topic = '未命名节点';
+      }
+      
+      // 处理可能存在的HTML实体和特殊字符
+      topic = topic.replace(/&lt;/g, '<')
+                   .replace(/&gt;/g, '>')
+                   .replace(/&amp;/g, '&')
+                   .replace(/&quot;/g, '"')
+                   .replace(/&#39;/g, "'");
       
       // 创建节点
       const mindNode: any = {
-        id: node._id || `node-${index}-${Math.random().toString(36).substr(2, 5)}`,
-        topic,
+        id: nodeId,
+        topic: topic,
         expanded: true
       };
       
       // 处理子节点
       if (node.outline) {
-        const children = Array.isArray(node.outline) ? node.outline : [node.outline];
-        mindNode.children = children.map((child: any, idx: number) => 
-          convertNode(child, idx)
-        ).filter(Boolean);
+        const childNodes = Array.isArray(node.outline) ? node.outline : [node.outline];
+        mindNode.children = childNodes
+          .filter((child: any) => child) // 过滤空值
+          .map((child: any, idx: number) => 
+            convertNode(child, idx, `${path}-${idx}`)
+          )
+          .filter(Boolean); // 过滤null结果
+      } else {
+        // 确保children属性始终存在，即使是空数组
+        mindNode.children = [];
       }
       
       return mindNode;
     }
     
     // 创建根节点
-    const nodeData = convertNode(rootOutline);
+    const rootNode = convertNode(rootOutline, 0, 'root');
     
-    // 确保根节点有ID
-    if (!nodeData.id) {
-      nodeData.id = 'root';
+    // 确保根节点有ID和topic
+    if (!rootNode.id) {
+      rootNode.id = 'root';
     }
     
-    return { nodeData };
+    if (!rootNode.topic || rootNode.topic === '') {
+      rootNode.topic = '思维导图';
+    }
+    
+    // 返回标准格式
+    const result_data = { 
+      nodeData: rootNode 
+    };
+    
+    // 额外的验证检查
+    if (!result_data.nodeData || !result_data.nodeData.id || !result_data.nodeData.topic) {
+      console.error('转换结果无效，缺少必要字段:', result_data);
+      return DEFAULT_MINDMAP_DATA;
+    }
+    
+    console.log('OPML转换完成，结果预览:', 
+      JSON.stringify(result_data).substring(0, 200) + '...');
+    
+    return result_data;
   } catch (error) {
     console.error('转换OPML文件失败:', error);
     return DEFAULT_MINDMAP_DATA;

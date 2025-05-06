@@ -27,7 +27,11 @@ const DEFAULT_MINDMAP_DATA = {
 // 验证并转换API返回的数据
 const validateAndTransform = (data: any) => {
   // 记录数据以便调试
-  console.log('服务器返回的原始数据:', data);
+  console.log('服务器返回的原始数据类型:', typeof data);
+  
+  if (typeof data === 'object' && data !== null) {
+    console.log('服务器返回的数据顶层键:', Object.keys(data));
+  }
   
   // 检查数据是否为undefined或null
   if (!data) {
@@ -41,29 +45,116 @@ const validateAndTransform = (data: any) => {
     return DEFAULT_MINDMAP_DATA;
   }
   
+  // 处理可能包含undefined值的数据
+  let cleanedData;
+  try {
+    // 创建深拷贝并移除所有undefined值
+    cleanedData = JSON.parse(JSON.stringify(data, (_, v) => v === undefined ? null : v));
+  } catch(err) {
+    console.error('数据清理过程发生错误:', err);
+    console.warn('使用默认数据');
+    return DEFAULT_MINDMAP_DATA;
+  }
+  
   // 如果数据已经包含nodeData字段(符合MindElixir格式)
-  if (data.nodeData && typeof data.nodeData === 'object') {
+  if (cleanedData.nodeData && typeof cleanedData.nodeData === 'object') {
+    console.log('检测到nodeData格式:', 
+      cleanedData.nodeData.id, 
+      cleanedData.nodeData.topic?.substring(0, 20)
+    );
+    
     // 确保nodeData有基本的结构
-    if (!data.nodeData.id || !data.nodeData.topic) {
-      console.warn('nodeData结构不完整:', data.nodeData);
-      return DEFAULT_MINDMAP_DATA;
+    if (!cleanedData.nodeData.id || !cleanedData.nodeData.topic) {
+      console.warn('nodeData结构不完整，尝试修复');
+      
+      // 尝试修复数据
+      if (!cleanedData.nodeData.id) {
+        cleanedData.nodeData.id = 'root';
+      }
+      
+      if (!cleanedData.nodeData.topic) {
+        cleanedData.nodeData.topic = '思维导图';
+      }
     }
-    return data;
+    
+    // 确保children是数组
+    if (!cleanedData.nodeData.children) {
+      cleanedData.nodeData.children = [];
+    } else if (!Array.isArray(cleanedData.nodeData.children)) {
+      cleanedData.nodeData.children = [];
+    }
+    
+    return cleanedData;
   }
   
   // 如果数据是单节点格式(有id和topic)
-  if (data.id && data.topic) {
+  if (cleanedData.id && cleanedData.topic) {
+    console.log('检测到单节点格式:', cleanedData.id, cleanedData.topic?.substring(0, 20));
     return {
       nodeData: {
-        ...data,
-        expanded: data.expanded !== undefined ? data.expanded : true
+        ...cleanedData,
+        expanded: cleanedData.expanded !== undefined ? cleanedData.expanded : true
       }
     };
   }
   
-  // 数据无法识别，返回默认数据
-  console.warn('不支持的数据格式:', data);
-  return DEFAULT_MINDMAP_DATA;
+  // 如果数据包含tree字段（某些OPML转换结果）
+  if (cleanedData.tree && Array.isArray(cleanedData.tree) && cleanedData.tree.length > 0) {
+    console.log('检测到tree格式数据');
+    const rootNode = cleanedData.tree[0];
+    return {
+      nodeData: {
+        id: rootNode.id || 'root',
+        topic: rootNode.topic || rootNode.title || '思维导图',
+        expanded: true,
+        children: rootNode.children || []
+      }
+    };
+  }
+  
+  // 尝试识别数据中的任何可用信息
+  console.warn('不支持的数据格式，尝试从内容中提取有用信息');
+  
+  // 最后的尝试：查找任何可以作为根节点的属性
+  const possibleTopics = ['topic', 'title', 'text', 'name', 'label'];
+  let rootTopic = '思维导图';
+  
+  for (const key of possibleTopics) {
+    if (typeof cleanedData[key] === 'string' && cleanedData[key].trim() !== '') {
+      rootTopic = cleanedData[key];
+      break;
+    }
+  }
+  
+  // 尝试找到可能的子节点
+  let children: any[] = [];
+  const possibleChildrenKeys = ['children', 'nodes', 'items', 'elements', 'branches'];
+  
+  for (const key of possibleChildrenKeys) {
+    if (Array.isArray(cleanedData[key]) && cleanedData[key].length > 0) {
+      children = cleanedData[key].map((child: any, index: number) => ({
+        id: child.id || `node-${index}`,
+        topic: child.topic || child.title || child.text || '子节点',
+        expanded: true
+      }));
+      break;
+    }
+  }
+  
+  const recoveredData = {
+    nodeData: {
+      id: cleanedData.id || 'root',
+      topic: rootTopic,
+      expanded: true,
+      children
+    }
+  };
+  
+  console.log('从不支持的格式中恢复出的数据:', 
+    JSON.stringify(recoveredData).substring(0, 100) + '...'
+  );
+  
+  return recoveredData;
 };
 
 export default function MindMapPage() {
@@ -79,24 +170,67 @@ export default function MindMapPage() {
     
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/mindmap-data');
+        console.log('开始从API获取思维导图数据...');
+        const res = await fetch('/api/mindmap-data', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
         
         if (!res.ok) {
           throw new Error(`加载思维导图失败: ${res.status} ${res.statusText}`);
         }
         
-        // 确保服务器返回的是JSON格式
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error(`无效的响应类型: ${contentType}`);
+        // 日志记录响应头信息
+        console.log('API响应状态:', res.status);
+        console.log('API响应Content-Type:', res.headers.get('content-type'));
+        
+        // 处理不同响应类型
+        const contentType = res.headers.get('content-type') || '';
+        let data;
+        
+        if (contentType.includes('application/json')) {
+          // JSON响应
+          try {
+            data = await res.json();
+            console.log('成功解析JSON响应');
+          } catch (jsonError) {
+            console.error('JSON解析失败:', jsonError);
+            throw new Error(`JSON解析失败: ${jsonError instanceof Error ? jsonError.message : '未知错误'}`);
+          }
+        } else {
+          // 非JSON响应，可能是文本
+          try {
+            const textContent = await res.text();
+            console.warn('非JSON响应，尝试将文本解析为JSON:', textContent.substring(0, 100) + '...');
+            
+            // 尝试将文本内容解析为JSON
+            try {
+              data = JSON.parse(textContent);
+              console.log('成功将文本内容解析为JSON');
+            } catch (parseErr) {
+              console.error('无法将文本内容解析为JSON:', parseErr);
+              throw new Error(`非JSON响应: ${contentType}`);
+            }
+          } catch (textError) {
+            console.error('读取响应内容失败:', textError);
+            throw new Error(`读取响应失败: ${textError instanceof Error ? textError.message : '未知错误'}`);
+          }
         }
         
-        const data = await res.json();
-        console.log('API返回的原始数据:', data);
+        console.log('API返回的原始数据类型:', typeof data);
         
         // 验证并转换数据
         const validData = validateAndTransform(data);
-        console.log('验证后的数据:', validData);
+        console.log('验证后的数据结构:', Object.keys(validData));
+        
+        if (validData.nodeData) {
+          console.log('nodeData.id:', validData.nodeData.id);
+          console.log('nodeData.topic:', validData.nodeData.topic?.substring(0, 30));
+          console.log('children数量:', Array.isArray(validData.nodeData.children) ? validData.nodeData.children.length : '非数组');
+        }
         
         setMindMapData(validData);
         setError(null);

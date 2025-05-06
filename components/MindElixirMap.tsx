@@ -77,13 +77,37 @@ const convertOpmlToMindElixir = (data: any) => {
     }
 
     // 避免JSON序列化错误
-    // 在这里尝试序列化再解析，确保没有循环引用
+    // 在这里尝试安全序列化数据，移除undefined和循环引用
+    const safeStringify = (obj: any) => {
+      const seen = new WeakSet();
+      return JSON.stringify(obj, (key, value) => {
+        // 处理undefined值
+        if (value === undefined) {
+          return null; // 将undefined转换为null
+        }
+        
+        // 处理循环引用
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return '[Circular]';
+          }
+          seen.add(value);
+        }
+        return value;
+      });
+    };
+    
     let sanitizedData;
     try {
-      const dataStr = JSON.stringify(data);
+      const dataStr = safeStringify(data);
+      console.log('安全序列化结果前20个字符:', dataStr.substring(0, 20) + '...');
       sanitizedData = JSON.parse(dataStr);
     } catch (jsonError) {
-      console.error('数据序列化失败，可能存在循环引用:', jsonError);
+      console.error('数据序列化失败:', jsonError);
+      console.log('序列化失败的数据类型:', typeof data);
+      if (typeof data === 'object') {
+        console.log('数据结构的顶层键:', Object.keys(data));
+      }
       return DEFAULT_MIND_DATA;
     }
     
@@ -280,27 +304,68 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         const ME = MindElixir.default;
         
         // 准备数据 - 确保转换成Mind-Elixir格式
-        console.log('原始数据:', data);
-        const mindElixirData = convertOpmlToMindElixir(data);
-        console.log('转换后的数据:', mindElixirData);
+        console.log('原始数据类型:', typeof data);
+        console.log('原始数据是否为null:', data === null);
+        console.log('原始数据是否为undefined:', data === undefined);
         
-        // 添加调试信息，在初始化前检查数据结构
-        if (!mindElixirData || !mindElixirData.nodeData) {
+        if (typeof data === 'object' && data !== null) {
+          console.log('原始数据顶层键:', Object.keys(data));
+        }
+        
+        const mindElixirData = convertOpmlToMindElixir(data);
+        
+        console.log('转换后的数据结构:', 
+          JSON.stringify({
+            hasNodeData: Boolean(mindElixirData && mindElixirData.nodeData),
+            nodeDataKeys: mindElixirData && mindElixirData.nodeData ? 
+              Object.keys(mindElixirData.nodeData) : '无nodeData'
+          })
+        );
+        
+        // 确保数据结构有效
+        if (!mindElixirData || typeof mindElixirData !== 'object') {
+          console.error('转换后的数据不是对象', mindElixirData);
+          setError('初始化失败: 数据转换结果无效');
+          return;
+        }
+        
+        // 确保nodeData存在
+        if (!mindElixirData.nodeData) {
           console.error('转换后的数据缺少nodeData结构', mindElixirData);
           setError('初始化失败: 数据结构无效 (缺少nodeData)');
           return;
         }
         
+        // 确保nodeData有效
+        if (typeof mindElixirData.nodeData !== 'object') {
+          console.error('nodeData不是对象', mindElixirData.nodeData);
+          setError('初始化失败: nodeData必须是对象');
+          return;
+        }
+        
+        // 检查必要的属性
         if (!mindElixirData.nodeData.id) {
           console.error('根节点缺少ID', mindElixirData.nodeData);
-          setError('初始化失败: 根节点缺少ID');
-          return;
+          // 尝试修复
+          mindElixirData.nodeData.id = 'root';
         }
         
         if (!mindElixirData.nodeData.topic) {
           console.error('根节点缺少主题', mindElixirData.nodeData);
-          setError('初始化失败: 根节点缺少topic');
-          return;
+          // 尝试修复
+          mindElixirData.nodeData.topic = '思维导图';
+        }
+        
+        if (!mindElixirData.nodeData.children) {
+          console.error('根节点缺少children数组', mindElixirData.nodeData);
+          // 确保有children数组
+          mindElixirData.nodeData.children = [];
+        }
+        
+        // 确保是数组
+        if (!Array.isArray(mindElixirData.nodeData.children)) {
+          console.error('children不是数组', mindElixirData.nodeData.children);
+          mindElixirData.nodeData.children = [];
         }
         
         // 配置MindElixir选项
@@ -319,7 +384,8 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         
         // 创建MindElixir实例
         try {
-          console.log('开始初始化MindElixir实例...');
+          console.log('开始初始化MindElixir实例，数据预览:', 
+            JSON.stringify(mindElixirData).substring(0, 100) + '...');
           mindElixirRef.current = new ME(options);
           
           // 初始化思维导图
@@ -336,6 +402,8 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
           // 提供更详细的错误信息
           if (errorMessage.includes('undefined') && errorMessage.includes('JSON')) {
             errorMessage = `"undefined" is not valid JSON - 请检查数据格式。有效nodeData示例: { nodeData: { id: "root", topic: "主题", children: [...] } }`;
+            console.error('数据格式问题，原始数据:', typeof data);
+            console.error('转换后的数据:', mindElixirData);
           }
           setError(`初始化失败: ${errorMessage}`);
         }
