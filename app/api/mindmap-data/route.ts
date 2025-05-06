@@ -82,7 +82,8 @@ function detectFileFormat(content: string): 'json' | 'xml' | 'unknown' {
 // 预处理和修复JSON格式问题
 function sanitizeJsonString(jsonStr: string): string {
   if (!jsonStr || typeof jsonStr !== 'string') {
-    return '{}';
+    // 返回默认思维导图的JSON字符串而不是空对象
+    return JSON.stringify(DEFAULT_MINDMAP_DATA);
   }
   
   try {
@@ -90,24 +91,35 @@ function sanitizeJsonString(jsonStr: string): string {
     JSON.parse(jsonStr);
     return jsonStr;
   } catch (e) {
-    console.log('JSON格式有问题，尝试修复');
+    console.log('JSON格式有问题，尝试修复', e);
     
     // 修复特定格式问题
     let fixed = jsonStr;
     
-    // 1. 修复"null{"结构 (应为"null,{")
-    fixed = fixed.replace(/null\s*{/g, 'null,{');
+    // 1. 处理null{和null"格式问题（优先处理）
+    fixed = fixed.replace(/null\s*{/g, 'null,{')
+                 .replace(/null\s*"/g, 'null,"');
     
-    // 2. 修复"null""结构 (应为"null,"")
-    fixed = fixed.replace(/null\s*"/g, 'null,"');
+    // 2. 修复nodeData格式问题
+    if (fixed.includes('"nodeData":null{')) {
+      console.log('检测到严重的nodeData格式问题，尝试深度修复');
+      // 替换 "nodeData":null{ 为 "nodeData":{
+      fixed = fixed.replace(/"nodeData"\s*:null\s*{/g, '"nodeData":{');
+    }
     
-    // 3. 替换裸null值为null字符串
+    // 3. 完全替换所有null加内容的模式
+    fixed = fixed.replace(/null([a-zA-Z0-9"\[{])/g, 'null,$1');
+    
+    // 4. 替换裸null值为null字符串
     fixed = fixed.replace(/:null([,}])/g, ':null$1');
     
-    // 4. 移除多余的逗号
+    // 5. 移除多余的逗号
     fixed = fixed.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
     
-    // 5. 修复缺少值的属性
+    // 6. 处理连续的逗号
+    fixed = fixed.replace(/,,+/g, ',');
+    
+    // 7. 修复缺少值的属性
     fixed = fixed.replace(/"[^"]+"\s*:/g, (match) => {
       if (match.endsWith(':')) {
         return match + 'null';
@@ -115,22 +127,29 @@ function sanitizeJsonString(jsonStr: string): string {
       return match;
     });
     
-    // 6. 其他常见错误修复
-    fixed = fixed.replace(/}\s*{/g, '},{');  // 修复对象之间缺少逗号
-    fixed = fixed.replace(/]\s*\[/g, '],[');  // 修复数组之间缺少逗号
-    fixed = fixed.replace(/}\s*\[/g, '},['). // 修复对象后接数组缺少逗号
-                  replace(/]\s*{/g, '],{');  // 修复数组后接对象缺少逗号
+    // 8. 其他常见错误修复
+    fixed = fixed.replace(/}\s*{/g, '},{')  // 修复对象之间缺少逗号
+                 .replace(/]\s*\[/g, '],[')  // 修复数组之间缺少逗号
+                 .replace(/}\s*\[/g, '},['). // 修复对象后接数组缺少逗号
+                 .replace(/]\s*{/g, '],{');  // 修复数组后接对象缺少逗号
     
     console.log('JSON修复完成，尝试验证');
     
     // 尝试解析修复后的JSON，验证是否有效
     try {
-      JSON.parse(fixed);
+      const parsed = JSON.parse(fixed);
+      
+      // 验证解析后的数据是否有基本结构
+      if (!parsed.nodeData || typeof parsed.nodeData !== 'object') {
+        console.warn('修复后的数据缺少nodeData结构，使用默认数据');
+        return JSON.stringify(DEFAULT_MINDMAP_DATA);
+      }
+      
       console.log('JSON修复成功');
       return fixed;
     } catch (fixError) {
-      console.error('无法修复的JSON格式问题:', fixError);
-      return '{}';
+      console.error('无法修复的JSON格式问题，使用默认数据:', fixError);
+      return JSON.stringify(DEFAULT_MINDMAP_DATA);
     }
   }
 }
@@ -305,38 +324,47 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
     try {
       const jsonString = JSON.stringify(result_data);
       
-      // 额外检查生成的JSON字符串是否存在可能导致解析问题的模式
-      if (jsonString.includes('null{') || jsonString.includes('null"')) {
-        console.warn('检测到可能导致解析问题的JSON模式，进行额外修复');
-        
-        // 使用我们的JSON修复函数
-        const sanitizedJson = sanitizeJsonString(jsonString);
-        
-        // 再次解析以验证
-        const validatedData = JSON.parse(sanitizedJson);
-        
-        // 从修复后的数据重建结果对象
-        return {
-          nodeData: {
-            id: validatedData.nodeData?.id || 'root',
-            topic: validatedData.nodeData?.topic || '思维导图',
-            expanded: true,
-            children: Array.isArray(validatedData.nodeData?.children) 
-              ? validatedData.nodeData.children 
-              : []
-          }
-        };
+      // 主动检查所有的响应数据是否包含格式问题，而不仅仅是特定模式
+      console.warn('API响应前进行格式检查和修复');
+      
+      // 使用增强的JSON修复函数对所有数据进行处理
+      const sanitizedJson = sanitizeJsonString(jsonString);
+      
+      // 解析修复后的JSON
+      const validatedData = JSON.parse(sanitizedJson);
+      
+      // 再次验证修复后的数据结构
+      if (!validatedData.nodeData || 
+          typeof validatedData.nodeData !== 'object' || 
+          !validatedData.nodeData.id || 
+          !validatedData.nodeData.topic) {
+        console.warn('修复后的数据仍不完整，使用默认思维导图数据');
+        return NextResponse.json(DEFAULT_MINDMAP_DATA);
       }
       
-      // 正常验证
-      JSON.parse(jsonString);
-      console.log('OPML转换完成，结果通过JSON验证');
+      console.log('数据格式验证通过，返回修复后的数据');
+      return NextResponse.json(validatedData);
     } catch (jsonError) {
-      console.error('结果JSON格式无效，返回默认数据:', jsonError);
-      return DEFAULT_MINDMAP_DATA;
+      console.error('最终JSON验证失败，尝试数据修复');
+      
+      try {
+        // 最后的挽救尝试：使用formattedData直接进行修复尝试
+        // 如果之前的jsonString有效，使用它；否则重新尝试序列化
+        const dataToFix = jsonString || (result_data ? JSON.stringify(result_data) : '{}');
+        const emergencyFixed = sanitizeJsonString(dataToFix);
+        
+        // 如果修复成功就返回修复后的数据
+        if (emergencyFixed !== '{}') {
+          const emergencyData = JSON.parse(emergencyFixed);
+          console.log('紧急修复成功，返回修复后的数据');
+          return NextResponse.json(emergencyData);
+        }
+      } catch (finalError) {
+        console.error('紧急修复也失败，返回默认数据');
+      }
+      
+      return NextResponse.json(DEFAULT_MINDMAP_DATA);
     }
-    
-    return result_data;
   } catch (error) {
     console.error('转换OPML文件失败:', error);
     return DEFAULT_MINDMAP_DATA;
@@ -501,25 +529,26 @@ export async function GET(request: NextRequest) {
       try {
         jsonString = JSON.stringify(formattedData);
         
-        // 检查序列化后的JSON是否存在可能导致解析问题的模式
-        if (jsonString.includes('null{') || jsonString.includes('null"')) {
-          console.warn('API响应中检测到可能导致解析问题的JSON模式，进行额外修复');
-          
-          // 使用JSON修复函数
-          const sanitizedJson = sanitizeJsonString(jsonString);
-          
-          // 解析修复后的JSON
-          const validatedData = JSON.parse(sanitizedJson);
-          
-          console.log('JSON修复成功，返回修复后的数据');
-          return NextResponse.json(validatedData);
+        // 主动检查所有的响应数据是否包含格式问题，而不仅仅是特定模式
+        console.warn('API响应前进行格式检查和修复');
+        
+        // 使用增强的JSON修复函数对所有数据进行处理
+        const sanitizedJson = sanitizeJsonString(jsonString);
+        
+        // 解析修复后的JSON
+        const validatedData = JSON.parse(sanitizedJson);
+        
+        // 再次验证修复后的数据结构
+        if (!validatedData.nodeData || 
+            typeof validatedData.nodeData !== 'object' || 
+            !validatedData.nodeData.id || 
+            !validatedData.nodeData.topic) {
+          console.warn('修复后的数据仍不完整，使用默认思维导图数据');
+          return NextResponse.json(DEFAULT_MINDMAP_DATA);
         }
         
-        // 正常验证
-        JSON.parse(jsonString);
-        
-        console.log('数据验证通过，返回结果');
-        return NextResponse.json(formattedData);
+        console.log('数据格式验证通过，返回修复后的数据');
+        return NextResponse.json(validatedData);
       } catch (jsonError) {
         console.error('最终JSON验证失败，尝试数据修复');
         
