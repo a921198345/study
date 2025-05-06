@@ -770,3 +770,24 @@
   - README.md：更新文档
 
 这次修复解决了Vercel构建环境中的CSS处理问题。由于Vercel的构建环境与本地开发环境有所不同，我们需要简化PostCSS配置并确保所有必要的依赖都能正确安装。这种方法不仅解决了构建错误，还提高了构建性能并减少了潜在的兼容性问题。 
+
+### 2023-05-11（当前日期）
+- **会话主要目的**：彻底解决Vercel部署中的CSS处理和构建问题
+- **完成的主要任务**：
+  - 重写OpmlUploader.js组件，使用Tailwind CSS类替代CSS模块
+  - 简化PdfUploader.module.css为最小占位符，保留必要的类名声明
+  - 修正.npmrc配置中的语法错误
+  - 更新vercel.json中的构建命令，确保所有CSS依赖安装完整
+- **关键决策和解决方案**：
+  - 彻底放弃CSS模块方式，改用原生Tailwind CSS类
+  - 从底层解决构建问题，而不是仅修复表面症状
+  - 提供空CSS类定义，确保向后兼容性
+  - 重新设计UI组件的样式结构
+- **技术栈**：Tailwind CSS, React, Next.js, Vercel
+- **修改文件**：
+  - components/OpmlUploader.js：完全重写组件样式
+  - styles/PdfUploader.module.css：简化为占位符
+  - vercel.json：更新构建命令
+  - .npmrc：修正配置格式
+
+这次修复通过从源头解决问题，完全重构了存在问题的组件，放弃了可能导致构建问题的CSS模块，转而使用更符合Next.js和Vercel生态系统的Tailwind CSS原生类。这种方法不仅解决了当前的构建错误，还提高了项目的可维护性和部署稳定性。 
