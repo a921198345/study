@@ -496,28 +496,10 @@ export async function GET(request: NextRequest) {
       
       console.log('数据格式转换完成，进行最终验证');
       
-      // 最终安全检查 - 确保返回有效的JSON
+      // 尝试序列化和解析，检查JSON格式是否有效
+      let jsonString;
       try {
-        // 先验证数据结构
-        if (!formattedData || typeof formattedData !== 'object') {
-          console.warn('数据不是有效对象，使用默认数据');
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
-        }
-        
-        // 验证nodeData结构
-        if (!formattedData.nodeData || typeof formattedData.nodeData !== 'object') {
-          console.warn('数据缺少nodeData结构，使用默认数据');
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
-        }
-        
-        // 确保关键字段存在
-        if (!formattedData.nodeData.id || !formattedData.nodeData.topic) {
-          console.warn('nodeData缺少必须的id或topic字段，使用默认数据');
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
-        }
-        
-        // 尝试序列化和解析，检查JSON格式是否有效
-        const jsonString = JSON.stringify(formattedData);
+        jsonString = JSON.stringify(formattedData);
         
         // 检查序列化后的JSON是否存在可能导致解析问题的模式
         if (jsonString.includes('null{') || jsonString.includes('null"')) {
@@ -542,8 +524,10 @@ export async function GET(request: NextRequest) {
         console.error('最终JSON验证失败，尝试数据修复');
         
         try {
-          // 最后的挽救尝试：对整个JSON字符串进行修复
-          const emergencyFixed = sanitizeJsonString(jsonString);
+          // 最后的挽救尝试：使用formattedData直接进行修复尝试
+          // 如果之前的jsonString有效，使用它；否则重新尝试序列化
+          const dataToFix = jsonString || (formattedData ? JSON.stringify(formattedData) : '{}');
+          const emergencyFixed = sanitizeJsonString(dataToFix);
           
           // 如果修复成功就返回修复后的数据
           if (emergencyFixed !== '{}') {
