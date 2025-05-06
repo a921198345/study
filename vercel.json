@@ -6,5 +6,15 @@
   "cleanUrls": true,
   "env": {
     "NODE_ENV": "production"
+  },
+  "functions": {
+    "app/api/admin/upload-opml/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "api": {
+    "bodyParser": {
+      "sizeLimit": "10mb"
+    }
   }
 } 
