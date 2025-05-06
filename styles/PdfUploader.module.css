@@ -1,4 +1,21 @@
-/* 简化版CSS */
+/* 
+  这个模块CSS已被Tailwind CSS原生类替代
+  本文件仅作为占位符保留，防止构建过程中的引用错误
+*/
+
 .container {}
 .uploadForm {}
 .title {}
+.description {}
+.fileInput {}
+.fileInputLabel {}
+.uploadButton {}
+.progressContainer {}
+.progressBar {}
+.progressText {}
+.error {}
+.resultContainer {}
+.resultTitle {}
+.resultInfo {}
+.treePreview {}
+.nodeInfo {}
