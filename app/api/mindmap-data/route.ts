@@ -24,39 +24,72 @@ const DEFAULT_MINDMAP_DATA = {
 function validateMindMapData(data: any): boolean {
   // 检查数据是否存在
   if (!data || typeof data !== 'object') {
-    console.warn('无效数据: 不是对象', data);
+    console.warn('validateMindMapData: 无效数据: 不是对象', typeof data);
     return false;
   }
   
   // 处理nodeData包装情况
   if (data.nodeData && typeof data.nodeData === 'object') {
+    console.log('validateMindMapData: 检测到nodeData包装，递归验证内部数据');
     return validateMindMapData(data.nodeData); // 递归验证nodeData内部的数据
   }
   
-  // 检查必要字段
-  if (!data.id || !data.topic || typeof data.topic !== 'string') {
-    console.warn('无效数据: 缺少id或topic', data);
+  // 更宽松的ID验证 - 如果没有ID但有topic，可以考虑自动生成ID并通过验证
+  let missingId = false;
+  if (!data.id) {
+    console.warn('validateMindMapData: 节点缺少ID，标题=', data.topic?.substring(0, 30));
+    missingId = true;
+    // 我们不立即返回false，稍后处理
+  }
+  
+  // 检查topic字段
+  if (!data.topic || typeof data.topic !== 'string') {
+    console.warn('validateMindMapData: 无效数据: 缺少topic或不是字符串类型', data);
     return false;
+  }
+  
+  // 如果缺少ID但有topic，我们可以在后续步骤中自动生成ID，所以这里不立即失败
+  if (missingId) {
+    console.log('validateMindMapData: 节点缺少ID但有有效topic，验证子节点:', data.topic?.substring(0, 30));
   }
   
   // 检查expanded字段
   if (data.expanded !== undefined && typeof data.expanded !== 'boolean') {
-    console.warn('无效数据: expanded字段类型错误', data);
-    return false;
+    console.warn('validateMindMapData: expanded字段类型错误，应为布尔值，实际为:', typeof data.expanded);
+    // 我们可以自动修复，所以不立即返回false
   }
   
   // 递归验证子节点
   if (data.children) {
     if (!Array.isArray(data.children)) {
-      console.warn('无效数据: children不是数组', data);
+      console.warn('validateMindMapData: children不是数组', typeof data.children);
       return false;
     }
     
-    for (const child of data.children) {
+    let allChildrenValid = true;
+    for (let i = 0; i < data.children.length; i++) {
+      const child = data.children[i];
+      if (!child) {
+        console.warn(`validateMindMapData: 子节点[${i}]为null或undefined`);
+        continue; // 跳过空子节点，但不失败
+      }
+      
       if (!validateMindMapData(child)) {
-        return false;
+        console.warn(`validateMindMapData: 子节点[${i}]验证失败, topic=${child.topic?.substring(0, 30)}`);
+        allChildrenValid = false;
+        break;
       }
     }
+    
+    if (!allChildrenValid) {
+      return false;
+    }
+  }
+  
+  // 如果只是缺少ID，我们认为数据基本有效，可以通过自动生成ID解决
+  if (missingId) {
+    console.log('validateMindMapData: 节点及子节点验证通过，但缺少ID，可以通过自动生成ID解决');
+    return true; // 允许缺少ID的节点通过验证
   }
   
   return true;
@@ -439,7 +472,7 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
         // 深度验证数据结构
         if (!validatedData || typeof validatedData !== 'object') {
           console.warn('修复后的数据不是有效对象，使用默认数据');
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+          return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
         }
         
         // 确保nodeData结构存在且合法
@@ -448,7 +481,7 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
             !validatedData.nodeData.id || 
             !validatedData.nodeData.topic) {
           console.warn('修复后的数据结构不完整，使用默认数据');
-          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+          return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
         }
         
         // 确保nodeData.children是数组
@@ -467,10 +500,10 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
         JSON.parse(finalCheck); // 如果这里出错，会被catch捕获
         
         console.log('数据格式验证通过，返回修复后的数据');
-        return NextResponse.json(validatedData);
+        return validatedData; // 直接返回数据对象，不是NextResponse
       } catch (validationError) {
         console.error('最终验证失败，返回默认数据:', validationError);
-        return NextResponse.json(DEFAULT_MINDMAP_DATA);
+        return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
       }
     } catch (jsonError) {
       console.error('最终JSON验证失败，尝试数据修复');
@@ -485,13 +518,13 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
         if (emergencyFixed !== '{}') {
           const emergencyData = JSON.parse(emergencyFixed);
           console.log('紧急修复成功，返回修复后的数据');
-          return NextResponse.json(emergencyData);
+          return emergencyData; // 直接返回数据对象，不是NextResponse
         }
       } catch (finalError) {
         console.error('紧急修复也失败，返回默认数据');
       }
       
-      return NextResponse.json(DEFAULT_MINDMAP_DATA);
+      return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
     }
   } catch (error) {
     console.error('转换OPML文件失败:', error);
@@ -616,15 +649,38 @@ export async function GET(request: NextRequest) {
           // 将OPML转换为Mind-Elixir格式
           const mindElixirData = await convertOpmlToMindElixir(activeMindMap.opml_content);
           
-          if (validateMindMapData(mindElixirData.nodeData)) {
-            console.log('OPML转换成功');
-            return NextResponse.json(mindElixirData);
+          // 增加日志，查看转换返回的数据类型和内容
+          console.log('OPML转换返回数据类型:', typeof mindElixirData);
+          console.log('OPML转换返回数据包含字段:', Object.keys(mindElixirData || {}));
+          
+          // 确保返回的是有效对象且包含nodeData
+          if (mindElixirData && typeof mindElixirData === 'object' && mindElixirData.nodeData) {
+            // 增加额外的nodeData验证
+            if (validateMindMapData(mindElixirData.nodeData)) {
+              console.log('OPML转换成功，数据验证通过');
+              
+              // 确保所有节点（包括深层嵌套节点）都有ID
+              const processedData = {
+                ...mindElixirData,
+                nodeData: ensureNodeIds(mindElixirData.nodeData)
+              };
+              
+              return NextResponse.json(processedData);
+            } else {
+              console.warn('OPML转换返回的数据无效，nodeData结构不正确');
+            }
+          } else {
+            console.warn('OPML转换返回的数据无效，不是对象或缺少nodeData:', mindElixirData);
           }
+        } else {
+          console.warn('文件格式不是XML:', format);
         }
       } catch (e) {
-        console.error('OPML处理失败:', e);
+        console.error('OPML处理失败，详细错误:', e);
         // 继续处理，返回默认数据
       }
+    } else {
+      console.warn('活跃思维导图没有OPML内容');
     }
     
     // 如果所有尝试都失败，返回默认数据
@@ -632,7 +688,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(DEFAULT_MINDMAP_DATA);
     
   } catch (error) {
-    console.error('获取思维导图数据过程中出错:', error);
+    console.error('获取思维导图数据过程中出错，详细错误:', error);
     return NextResponse.json(DEFAULT_MINDMAP_DATA);
   }
 } 
