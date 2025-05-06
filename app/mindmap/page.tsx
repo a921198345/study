@@ -6,7 +6,7 @@ import '../../styles/mind-elixir.css';
 import ErrorBoundary from '../../components/error-boundary';
 
 // 动态导入组件以避免SSR问题
-const MindElixirMap = dynamic(() => import('@/components/MindElixirMap'), { ssr: false });
+const MindElixirMap = dynamic(() => import('../../components/MindElixirMap'), { ssr: false });
 
 // 默认思维导图数据 - 即使API无法获取数据也能显示
 const DEFAULT_MINDMAP_DATA = {
