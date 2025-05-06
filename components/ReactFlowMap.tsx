@@ -11,6 +11,10 @@ import ReactFlow, {
   NodeTypes,
   ConnectionLineType,
   MarkerType,
+  Node,
+  Edge,
+  NodeProps,
+  Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -25,7 +29,7 @@ const DEFAULT_MIND_DATA = {
 };
 
 // 自定义节点组件
-const CustomNode = ({ data, isConnectable }) => {
+const CustomNode = ({ data, isConnectable }: NodeProps) => {
   const color = data.level === 0 ? '#4a89ff' : 
                data.level === 1 ? '#ff6b6b' : 
                data.level === 2 ? '#2ecc71' : 
