@@ -750,3 +750,23 @@
   - package.json：添加postcss-nested依赖
   
 这次修复解决了Vercel构建过程中的两个主要错误：模块导入路径问题和缺失的CSS处理依赖。通过这些修改，项目现在应该能够在Vercel平台上成功构建和部署。 
+
+### 2023-05-10（当前日期）
+- **会话主要目的**：解决Vercel构建环境中的CSS处理问题
+- **完成的主要任务**：
+  - 简化了PostCSS配置，移除了postcss-nested插件
+  - 更新了vercel.json，添加了自定义构建命令
+  - 创建.npmrc配置文件，确保所有依赖正确安装
+  - 优化了构建环境配置
+- **关键决策和解决方案**：
+  - 采用最小化的PostCSS配置，仅保留必要的tailwindcss和autoprefixer插件
+  - 在vercel.json中配置自定义构建命令，确保构建前安装所有依赖
+  - 使用.npmrc配置确保开发依赖也在生产环境中安装
+- **技术栈**：PostCSS, Tailwind CSS, Vercel, Git
+- **修改文件**：
+  - postcss.config.js：简化插件配置
+  - vercel.json：添加自定义构建命令
+  - .npmrc：添加npm配置
+  - README.md：更新文档
+
+这次修复解决了Vercel构建环境中的CSS处理问题。由于Vercel的构建环境与本地开发环境有所不同，我们需要简化PostCSS配置并确保所有必要的依赖都能正确安装。这种方法不仅解决了构建错误，还提高了构建性能并减少了潜在的兼容性问题。 
