@@ -79,6 +79,62 @@ function detectFileFormat(content: string): 'json' | 'xml' | 'unknown' {
   return 'unknown';
 }
 
+// 预处理和修复JSON格式问题
+function sanitizeJsonString(jsonStr: string): string {
+  if (!jsonStr || typeof jsonStr !== 'string') {
+    return '{}';
+  }
+  
+  try {
+    // 尝试先解析，如果正常则直接返回
+    JSON.parse(jsonStr);
+    return jsonStr;
+  } catch (e) {
+    console.log('JSON格式有问题，尝试修复');
+    
+    // 修复特定格式问题
+    let fixed = jsonStr;
+    
+    // 1. 修复"null{"结构 (应为"null,{")
+    fixed = fixed.replace(/null\s*{/g, 'null,{');
+    
+    // 2. 修复"null""结构 (应为"null,"")
+    fixed = fixed.replace(/null\s*"/g, 'null,"');
+    
+    // 3. 替换裸null值为null字符串
+    fixed = fixed.replace(/:null([,}])/g, ':null$1');
+    
+    // 4. 移除多余的逗号
+    fixed = fixed.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+    
+    // 5. 修复缺少值的属性
+    fixed = fixed.replace(/"[^"]+"\s*:/g, (match) => {
+      if (match.endsWith(':')) {
+        return match + 'null';
+      }
+      return match;
+    });
+    
+    // 6. 其他常见错误修复
+    fixed = fixed.replace(/}\s*{/g, '},{');  // 修复对象之间缺少逗号
+    fixed = fixed.replace(/]\s*\[/g, '],[');  // 修复数组之间缺少逗号
+    fixed = fixed.replace(/}\s*\[/g, '},['). // 修复对象后接数组缺少逗号
+                  replace(/]\s*{/g, '],{');  // 修复数组后接对象缺少逗号
+    
+    console.log('JSON修复完成，尝试验证');
+    
+    // 尝试解析修复后的JSON，验证是否有效
+    try {
+      JSON.parse(fixed);
+      console.log('JSON修复成功');
+      return fixed;
+    } catch (fixError) {
+      console.error('无法修复的JSON格式问题:', fixError);
+      return '{}';
+    }
+  }
+}
+
 // 将OPML格式转换为Mind-Elixir格式
 async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
   try {
@@ -248,7 +304,32 @@ async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
     // 最终安全检查：尝试序列化和反序列化以验证JSON格式
     try {
       const jsonString = JSON.stringify(result_data);
-      JSON.parse(jsonString); // 如果这里抛出错误，说明JSON格式有问题
+      
+      // 额外检查生成的JSON字符串是否存在可能导致解析问题的模式
+      if (jsonString.includes('null{') || jsonString.includes('null"')) {
+        console.warn('检测到可能导致解析问题的JSON模式，进行额外修复');
+        
+        // 使用我们的JSON修复函数
+        const sanitizedJson = sanitizeJsonString(jsonString);
+        
+        // 再次解析以验证
+        const validatedData = JSON.parse(sanitizedJson);
+        
+        // 从修复后的数据重建结果对象
+        return {
+          nodeData: {
+            id: validatedData.nodeData?.id || 'root',
+            topic: validatedData.nodeData?.topic || '思维导图',
+            expanded: true,
+            children: Array.isArray(validatedData.nodeData?.children) 
+              ? validatedData.nodeData.children 
+              : []
+          }
+        };
+      }
+      
+      // 正常验证
+      JSON.parse(jsonString);
       console.log('OPML转换完成，结果通过JSON验证');
     } catch (jsonError) {
       console.error('结果JSON格式无效，返回默认数据:', jsonError);
@@ -378,13 +459,23 @@ export async function GET(request: NextRequest) {
       let formattedData;
       
       if (fileFormat === 'json') {
-        // 处理JSON格式
+        // 处理JSON格式，先应用格式修复
         try {
-          const mindmapData = JSON.parse(fileContent);
+          // 先对JSON字符串进行清理和格式修复
+          const sanitizedContent = sanitizeJsonString(fileContent);
+          
+          // 如果修复后的内容是空对象，直接使用默认数据
+          if (sanitizedContent === '{}') {
+            console.warn('JSON数据无法修复，使用默认数据');
+            return NextResponse.json(DEFAULT_MINDMAP_DATA);
+          }
+          
+          // 解析修复后的内容
+          const mindmapData = JSON.parse(sanitizedContent);
           console.log('JSON解析成功');
           formattedData = convertToMindElixirFormat(mindmapData);
         } catch (jsonError) {
-          console.error('JSON解析失败:', jsonError);
+          console.error('JSON处理失败:', jsonError);
           return NextResponse.json(DEFAULT_MINDMAP_DATA);
         }
       } else if (fileFormat === 'xml') {
@@ -427,12 +518,43 @@ export async function GET(request: NextRequest) {
         
         // 尝试序列化和解析，检查JSON格式是否有效
         const jsonString = JSON.stringify(formattedData);
+        
+        // 检查序列化后的JSON是否存在可能导致解析问题的模式
+        if (jsonString.includes('null{') || jsonString.includes('null"')) {
+          console.warn('API响应中检测到可能导致解析问题的JSON模式，进行额外修复');
+          
+          // 使用JSON修复函数
+          const sanitizedJson = sanitizeJsonString(jsonString);
+          
+          // 解析修复后的JSON
+          const validatedData = JSON.parse(sanitizedJson);
+          
+          console.log('JSON修复成功，返回修复后的数据');
+          return NextResponse.json(validatedData);
+        }
+        
+        // 正常验证
         JSON.parse(jsonString);
         
         console.log('数据验证通过，返回结果');
         return NextResponse.json(formattedData);
       } catch (jsonError) {
-        console.error('最终JSON验证失败，返回默认数据:', jsonError);
+        console.error('最终JSON验证失败，尝试数据修复');
+        
+        try {
+          // 最后的挽救尝试：对整个JSON字符串进行修复
+          const emergencyFixed = sanitizeJsonString(jsonString);
+          
+          // 如果修复成功就返回修复后的数据
+          if (emergencyFixed !== '{}') {
+            const emergencyData = JSON.parse(emergencyFixed);
+            console.log('紧急修复成功，返回修复后的数据');
+            return NextResponse.json(emergencyData);
+          }
+        } catch (finalError) {
+          console.error('紧急修复也失败，返回默认数据');
+        }
+        
         return NextResponse.json(DEFAULT_MINDMAP_DATA);
       }
     } catch (fileError) {
