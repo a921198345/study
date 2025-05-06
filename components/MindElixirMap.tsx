@@ -496,6 +496,11 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         if (err instanceof Error && err.message.includes('undefined') && err.message.includes('JSON')) {
           console.error('检测到JSON解析错误，尝试最终的回退方案');
           
+          // 在外部作用域定义变量
+          let unpatchJSON = () => {
+            console.log('默认unpatchJSON函数被调用');
+          };
+          
           try {
             console.log('尝试使用极简数据初始化');
             
@@ -522,8 +527,8 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
               data: absoluteMinimalData
             };
             
-            // 再次拦截JSON.parse
-            const unpatchJSON = safePatchMindElixir();
+            // 再次拦截JSON.parse，并给外部变量赋值
+            unpatchJSON = safePatchMindElixir();
             
             try {
               // 重新导入MindElixir库以确保ME变量在当前范围内可用
