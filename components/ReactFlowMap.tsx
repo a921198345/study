@@ -18,7 +18,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// 导入默认数据，与MindElixirMap中相同
+// 默认思维导图数据
 const DEFAULT_MIND_DATA = {
   nodeData: {
     id: 'root',
@@ -30,22 +30,44 @@ const DEFAULT_MIND_DATA = {
 
 // 自定义节点组件
 const CustomNode = ({ data, isConnectable }: NodeProps) => {
-  const color = data.level === 0 ? '#4a89ff' : 
-               data.level === 1 ? '#ff6b6b' : 
+  // 根据层级调整样式
+  const color = data.level === 0 ? '#ff9500' : 
+               data.level === 1 ? '#9b59b6' : 
                data.level === 2 ? '#2ecc71' : 
-               data.level === 3 ? '#9b59b6' : '#f39c12';
+               data.level === 3 ? '#3498db' : '#f39c12';
+  
+  // 根据层级调整节点大小和字体大小
+  const nodeStyles = {
+    background: data.style?.background || color,
+    minWidth: data.level === 0 ? '200px' : 
+              data.level === 1 ? '180px' : 
+              data.level === 2 ? '150px' : '120px',
+    maxWidth: data.level === 0 ? '300px' : 
+              data.level === 1 ? '280px' : 
+              data.level === 2 ? '250px' : '200px',
+    fontSize: data.level === 0 ? '18px' : 
+              data.level === 1 ? '16px' : 
+              data.level === 2 ? '14px' : '12px',
+    color: data.style?.color || 'white',
+    fontWeight: data.level === 0 ? 'bold' : 
+                data.level === 1 ? 'bold' : 'normal',
+    textAlign: 'center',
+    lineHeight: '1.3',
+    padding: data.level === 0 ? '12px 16px' : 
+             data.level === 1 ? '10px 14px' : 
+             data.level === 2 ? '8px 12px' : '6px 10px',
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    border: '2px solid transparent',
+    borderColor: data.style?.borderColor || 'transparent',
+    wordWrap: 'break-word',
+    opacity: data.level > 3 ? 0.9 : 1,
+  };
 
   return (
     <div
-      className="px-3 py-2 rounded-md shadow-md text-white"
-      style={{ 
-        background: data.style?.background || color,
-        minWidth: '50px',
-        maxWidth: '250px',
-        fontSize: data.style?.fontSize || '14px',
-        color: data.style?.color || 'white',
-        fontWeight: data.level === 0 ? 'bold' : 'normal',
-      }}
+      className="shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
+      style={nodeStyles}
     >
       {data.label}
     </div>
@@ -68,6 +90,7 @@ interface MindNode {
     background?: string;
     color?: string;
     fontSize?: string;
+    borderColor?: string;
   };
 }
 
@@ -134,7 +157,7 @@ const isValidData = (data: any): boolean => {
 };
 
 // 将Mind Elixir格式转换为ReactFlow格式
-const convertToReactFlow = (data: any) => {
+const convertToReactFlow = (data: any, themeColors: any, direction: 'right' | 'side' = 'right') => {
   console.log('ReactFlowMap: 开始数据转换...');
   
   // 如果没有有效数据，使用默认数据
@@ -166,8 +189,26 @@ const convertToReactFlow = (data: any) => {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   
+  // 计算最大层级深度以调整布局
+  const calculateMaxDepth = (node: any, currentDepth: number = 0): number => {
+    if (!node || !node.children || !Array.isArray(node.children) || node.children.length === 0) {
+      return currentDepth;
+    }
+    
+    let maxChildDepth = currentDepth;
+    for (const child of node.children) {
+      const childDepth = calculateMaxDepth(child, currentDepth + 1);
+      maxChildDepth = Math.max(maxChildDepth, childDepth);
+    }
+    
+    return maxChildDepth;
+  };
+  
+  const maxDepth = calculateMaxDepth(rootNode);
+  console.log(`ReactFlowMap: 思维导图最大深度: ${maxDepth}`);
+  
   // 递归处理节点
-  const processNode = (node: any, parentId: string | null = null, level: number = 0, position = { x: 0, y: 0 }, direction: string = 'right') => {
+  const processNode = (node: any, parentId: string | null = null, level: number = 0, position = { x: 0, y: 0 }, dir: string = 'right') => {
     if (!node) {
       console.warn('ReactFlowMap: 处理空节点');
       return;
@@ -181,6 +222,14 @@ const convertToReactFlow = (data: any) => {
     
     console.log(`ReactFlowMap: 处理节点 ID=${id}, 标题=${label.substring(0, 20)}, 级别=${level}`);
     
+    // 根据主题获取颜色
+    const nodeStyle = {
+      background: level === 0 ? themeColors.root :
+                 level === 1 ? themeColors.level1 :
+                 level === 2 ? themeColors.level2 :
+                 level === 3 ? themeColors.level3 : themeColors.default
+    };
+    
     // 添加节点
     nodes.push({
       id,
@@ -189,7 +238,7 @@ const convertToReactFlow = (data: any) => {
       data: { 
         label, 
         level,
-        style: node.style || {}
+        style: { ...nodeStyle, ...(node.style || {}) }
       },
       style: {
         width: 'auto',
@@ -205,55 +254,64 @@ const convertToReactFlow = (data: any) => {
         target: id,
         type: 'smoothstep',
         animated: false,
-        style: { stroke: '#888' },
+        style: { 
+          stroke: themeColors.edge, 
+          strokeWidth: level === 1 ? 3 : 2,
+          opacity: 0.8
+        },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           width: 15,
           height: 15,
-          color: '#888',
+          color: themeColors.edge,
         },
       });
     }
     
-    // 处理子节点
+    // 处理子节点 - 使用计算的间距
     if (node.children && Array.isArray(node.children)) {
       const childCount = node.children.length;
       console.log(`ReactFlowMap: 处理节点 ${id} 的 ${childCount} 个子节点`);
       
-      const spacing = 150; // 节点间距
+      // 根据层级和子节点数量动态调整间距
+      const horizontalSpacing = level === 0 ? 350 : 
+                               level === 1 ? 300 : 
+                               level === 2 ? 250 : 200;
       
-      node.children.forEach((child: any, index: number) => {
-        if (!child) {
-          console.warn(`ReactFlowMap: 节点 ${id} 的第 ${index} 个子节点为空`);
-          return;
-        }
-        
-        let childPosition;
-        
-        if (direction === 'right') {
-          // 水平布局 - 子节点在右侧
-          childPosition = {
-            x: position.x + 250, // 向右偏移
-            y: position.y - ((childCount - 1) * spacing / 2) + (index * spacing) // 垂直分布
-          };
-        } else {
-          // 中心布局 - 子节点围绕父节点
-          const angle = (2 * Math.PI * index) / childCount;
-          childPosition = {
-            x: position.x + Math.cos(angle) * 250,
-            y: position.y + Math.sin(angle) * 150
-          };
-        }
-        
-        processNode(child, id, level + 1, childPosition, direction);
-      });
+      const verticalSpacing = 50 + (Math.min(childCount, 10) * 10);
+      
+      // 根据子节点总高度计算起始Y坐标
+      const totalHeight = (childCount - 1) * verticalSpacing;
+      const startY = position.y - totalHeight / 2;
+      
+      node.children
+        .filter((child: any) => child) // 过滤空子节点
+        .forEach((child: any, index: number) => {
+          let childPosition;
+          
+          if (dir === 'right' || (dir === 'side' && level % 2 === 0)) {
+            // 右侧布局 或 side模式下的偶数层级
+            childPosition = {
+              x: position.x + horizontalSpacing,
+              y: startY + (index * verticalSpacing)
+            };
+          } else {
+            // side模式下的奇数层级
+            childPosition = {
+              x: position.x - horizontalSpacing,
+              y: startY + (index * verticalSpacing)
+            };
+          }
+          
+          processNode(child, id, level + 1, childPosition, dir);
+        });
     }
   };
   
   // 从根节点开始处理
   try {
     console.log('ReactFlowMap: 开始从根节点处理');
-    processNode(rootNode, null, 0, { x: 50, y: 50 }, 'right');
+    processNode(rootNode, null, 0, { x: 200, y: 300 }, direction);
     console.log(`ReactFlowMap: 处理完成，生成 ${nodes.length} 个节点和 ${edges.length} 条边`);
   } catch (error) {
     console.error('ReactFlowMap: 处理节点时出错:', error);
@@ -263,17 +321,49 @@ const convertToReactFlow = (data: any) => {
 };
 
 // 根据主题获取颜色
-const getThemeColor = (themeName: string): string => {
+const getThemeColors = (themeName: string = 'primary') => {
   switch (themeName) {
     case 'dark':
-      return '#333333';
+      return {
+        root: '#333333',
+        level1: '#8E44AD',
+        level2: '#27AE60',
+        level3: '#2C3E50',
+        default: '#7F8C8D',
+        background: '#192734',
+        edge: '#aaaaaa'
+      };
     case 'green':
-      return '#2ecc71';
+      return {
+        root: '#16A085',
+        level1: '#2ECC71',
+        level2: '#27AE60',
+        level3: '#1ABC9C',
+        default: '#29B765',
+        background: '#EAFAF1',
+        edge: '#16A085'
+      };
     case 'purple':
-      return '#9b59b6';
+      return {
+        root: '#8E44AD',
+        level1: '#9B59B6',
+        level2: '#884EA0',
+        level3: '#A569BD',
+        default: '#BB8FCE',
+        background: '#F5EEF8',
+        edge: '#8E44AD'
+      };
     case 'primary':
     default:
-      return '#4a89ff';
+      return {
+        root: '#FF9500',
+        level1: '#9B59B6',
+        level2: '#2ECC71',
+        level3: '#3498DB',
+        default: '#F39C12',
+        background: '#F7FAFC',
+        edge: '#3498DB'
+      };
   }
 };
 
@@ -293,6 +383,9 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [isClient, setIsClient] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [themeColors, setThemeColors] = useState(getThemeColors(theme));
+  const [currentTheme, setCurrentTheme] = useState(theme);
+  const [currentDirection, setCurrentDirection] = useState(direction);
   const reactFlowWrapper = useRef(null);
   
   // 确保在客户端渲染
@@ -300,51 +393,128 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
     setIsClient(true);
   }, []);
   
+  // 监听主题变化
+  useEffect(() => {
+    if (theme !== currentTheme) {
+      console.log(`ReactFlowMap: 主题变更 ${currentTheme} -> ${theme}`);
+      setCurrentTheme(theme);
+      setThemeColors(getThemeColors(theme));
+      
+      // 应用新主题颜色到现有节点和边
+      if (nodes.length > 0) {
+        const newColors = getThemeColors(theme);
+        
+        // 更新节点颜色
+        setNodes(prevNodes => prevNodes.map(node => {
+          const level = node.data.level;
+          const nodeColor = level === 0 ? newColors.root :
+                           level === 1 ? newColors.level1 :
+                           level === 2 ? newColors.level2 :
+                           level === 3 ? newColors.level3 : newColors.default;
+                           
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              style: {
+                ...node.data.style,
+                background: nodeColor
+              }
+            }
+          };
+        }));
+        
+        // 更新连接线颜色
+        setEdges(prevEdges => prevEdges.map(edge => ({
+          ...edge,
+          style: {
+            ...edge.style,
+            stroke: newColors.edge
+          },
+          markerEnd: {
+            ...edge.markerEnd,
+            color: newColors.edge
+          }
+        })));
+      }
+    }
+  }, [theme, currentTheme, nodes, setNodes, setEdges]);
+  
+  // 监听方向变化
+  useEffect(() => {
+    if (direction !== currentDirection && isClient) {
+      console.log(`ReactFlowMap: 方向变更 ${currentDirection} -> ${direction}`);
+      setCurrentDirection(direction);
+      refreshLayout();
+    }
+  }, [direction, currentDirection, isClient]);
+  
   // 初始化节点和边缘
   useEffect(() => {
     if (!isClient) return;
     
     try {
-      console.log('处理思维导图数据...');
+      console.log('ReactFlowMap: 处理思维导图数据...');
       
       // 将数据转换为ReactFlow格式
-      const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data);
+      const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data, themeColors, direction);
       
       // 设置节点和边缘
       setNodes(flowNodes);
       setEdges(flowEdges);
       
-      console.log('思维导图数据处理完成，节点数:', flowNodes.length);
+      console.log('ReactFlowMap: 思维导图数据处理完成，节点数:', flowNodes.length);
     } catch (err) {
-      console.error('初始化思维导图出错:', err);
+      console.error('ReactFlowMap: 初始化思维导图出错:', err);
       setError('初始化思维导图时出错，请检查数据格式');
     }
-  }, [data, direction, isClient, setNodes, setEdges]);
+  }, [data, isClient, setNodes, setEdges, themeColors]);
   
   // 处理节点点击
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    console.log('点击节点:', node);
+    console.log('ReactFlowMap: 点击节点:', node);
+    // 可以在这里添加节点点击处理逻辑，如高亮或展开/折叠
   }, []);
   
-  // 水平分布节点
-  const onLayout = useCallback(() => {
-    const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data);
-    setNodes([...flowNodes]);
-    setEdges([...flowEdges]);
-  }, [data, setNodes, setEdges]);
+  // 刷新布局
+  const refreshLayout = useCallback(() => {
+    try {
+      console.log('ReactFlowMap: 刷新布局...');
+      const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data, themeColors, currentDirection);
+      setNodes(flowNodes);
+      setEdges(flowEdges);
+      console.log('ReactFlowMap: 布局刷新完成');
+    } catch (err) {
+      console.error('ReactFlowMap: 刷新布局出错:', err);
+      setError('刷新布局时出错，请检查数据格式');
+    }
+  }, [data, themeColors, currentDirection, setNodes, setEdges]);
   
   if (!isClient) {
     return null;
   }
   
+  // 设置背景颜色
+  const bgColor = themeColors.background;
+  
   return (
-    <div className={`react-flow-container ${className}`} style={{ width, height, position: 'relative' }}>
+    <div className={`react-flow-container ${className}`} style={{ 
+      width, height, position: 'relative',
+      backgroundColor: bgColor,
+      transition: 'background-color 0.3s ease'
+    }}>
       {error ? (
         <div className="flex flex-col items-center justify-center h-full bg-red-50 p-4 rounded-md">
           <div className="text-red-500 mb-2 font-medium">错误: {error}</div>
           <div className="text-sm text-gray-600">
             尝试刷新页面或检查数据格式。如果问题持续，请联系管理员。
           </div>
+          <button 
+            onClick={refreshLayout}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            尝试重新加载
+          </button>
         </div>
       ) : (
         <div ref={reactFlowWrapper} style={{ width: '100%', height: '100%' }}>
@@ -367,13 +537,20 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
               elementsSelectable={true}
               proOptions={{ hideAttribution: true }}
             >
-              <Background />
-              <Controls />
+              <Background 
+                color={theme === 'dark' ? '#555' : '#aaa'} 
+                gap={24} 
+                size={1.5} 
+              />
+              <Controls 
+                showInteractive={true} 
+                className="shadow-lg bg-white/90 dark:bg-gray-800/90"
+              />
               <Panel position="top-right">
                 <div className="flex gap-2">
                   <button
-                    onClick={() => onLayout()}
-                    className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    onClick={refreshLayout}
+                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded shadow-md transition-colors"
                   >
                     重新布局
                   </button>
@@ -386,7 +563,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
                         }))
                       );
                     }}
-                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                    className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded shadow-md transition-colors"
                   >
                     刷新
                   </button>
