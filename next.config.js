@@ -17,8 +17,17 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // 确保react-icons包被正确处理
+  transpilePackages: ['react-icons'],
   // 增加对Vercel部署的兼容性
   webpack: (config) => {
+    // 确保模块能够正确解析
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+    };
+    
     return config;
   },
 };

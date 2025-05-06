@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { ImSpinner2 } from 'react-icons/im';
-import { IoSunnyOutline, IoMoonOutline } from 'react-icons/io5';
-import { MdViewComfy, MdViewDay } from 'react-icons/md';
 import "./mindmap.css";
 import ErrorBoundary from '../../components/error-boundary';
 
@@ -13,7 +10,7 @@ const ReactFlowMap = dynamic(() => import('../../components/ReactFlowMap'), {
   ssr: false,
   loading: () => (
     <div className="flex justify-center items-center h-[600px]">
-      <ImSpinner2 className="animate-spin text-4xl text-gray-600" />
+      <div className="animate-spin text-4xl text-gray-600">⟳</div>
     </div>
   ),
 });
@@ -183,9 +180,9 @@ export default function MindMapPage() {
             title={viewMode === 'right' ? '切换到中心布局' : '切换到右侧布局'}
           >
             {viewMode === 'right' ? (
-              <MdViewDay size={24} className="text-gray-600 dark:text-gray-300" />
+              <span className="text-gray-600 dark:text-gray-300 text-xl">⏹</span>
             ) : (
-              <MdViewComfy size={24} className="text-gray-600 dark:text-gray-300" />
+              <span className="text-gray-600 dark:text-gray-300 text-xl">⟿</span>
             )}
           </button>
           
@@ -196,9 +193,9 @@ export default function MindMapPage() {
             title="切换主题"
           >
             {theme === 'dark' ? (
-              <IoSunnyOutline size={24} className="text-gray-600 dark:text-gray-300" />
+              <span className="text-gray-600 dark:text-gray-300 text-xl">☀️</span>
             ) : (
-              <IoMoonOutline size={24} className="text-gray-600 dark:text-gray-300" />
+              <span className="text-gray-600 dark:text-gray-300 text-xl">🌙</span>
             )}
           </button>
         </div>
@@ -208,7 +205,7 @@ export default function MindMapPage() {
       <div className="flex-1 relative">
         {loading ? (
           <div className="flex justify-center items-center h-full">
-            <ImSpinner2 className="animate-spin text-4xl text-gray-600" />
+            <div className="animate-spin text-4xl text-gray-600 mr-2">⟳</div>
             <span className="ml-2 text-gray-600">加载思维导图...</span>
           </div>
         ) : error ? (
