@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { parseStringPromise } from 'xml2js'; // 导入xml2js库解析OPML文件
 
 // 默认思维导图数据，当文件不存在时返回 - 修改为与MindElixir兼容的格式
 const DEFAULT_MINDMAP_DATA = {
@@ -58,6 +59,81 @@ function validateMindMapData(data: any): boolean {
   }
   
   return true;
+}
+
+// 检测文件格式（JSON或OPML/XML）
+function detectFileFormat(content: string): 'json' | 'xml' | 'unknown' {
+  // 移除开头的空白字符
+  const trimmed = content.trim();
+  
+  // 检查是否以XML声明或标签开头
+  if (trimmed.startsWith('<?xml') || trimmed.startsWith('<opml') || trimmed.startsWith('<outline')) {
+    return 'xml';
+  }
+  
+  // 检查是否以JSON对象或数组开头
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    return 'json';
+  }
+  
+  return 'unknown';
+}
+
+// 将OPML格式转换为Mind-Elixir格式
+async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
+  try {
+    // 解析XML内容
+    const result = await parseStringPromise(xmlContent, { explicitArray: false });
+    
+    // 检查是否是有效的OPML格式
+    if (!result.opml || !result.opml.body || !result.opml.body.outline) {
+      console.warn('无效的OPML格式:', result);
+      return DEFAULT_MINDMAP_DATA;
+    }
+    
+    // 获取根节点
+    const rootOutline = Array.isArray(result.opml.body.outline) 
+      ? result.opml.body.outline[0] 
+      : result.opml.body.outline;
+    
+    // 递归将OPML转为Mind-Elixir格式
+    function convertNode(node: any, index: number = 0): any {
+      if (!node) return null;
+      
+      // 提取标题
+      const topic = node.text || node.title || node._text || node._title || '未命名节点';
+      
+      // 创建节点
+      const mindNode: any = {
+        id: node._id || `node-${index}-${Math.random().toString(36).substr(2, 5)}`,
+        topic,
+        expanded: true
+      };
+      
+      // 处理子节点
+      if (node.outline) {
+        const children = Array.isArray(node.outline) ? node.outline : [node.outline];
+        mindNode.children = children.map((child: any, idx: number) => 
+          convertNode(child, idx)
+        ).filter(Boolean);
+      }
+      
+      return mindNode;
+    }
+    
+    // 创建根节点
+    const nodeData = convertNode(rootOutline);
+    
+    // 确保根节点有ID
+    if (!nodeData.id) {
+      nodeData.id = 'root';
+    }
+    
+    return { nodeData };
+  } catch (error) {
+    console.error('转换OPML文件失败:', error);
+    return DEFAULT_MINDMAP_DATA;
+  }
 }
 
 // 转换数据为MindElixir兼容格式
@@ -164,22 +240,43 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 读取JSON文件内容
+    // 读取文件内容
     try {
       const fileContent = fs.readFileSync(fullPath, 'utf8');
       console.log('文件内容读取成功');
       
-      let mindmapData;
-      try {
-        mindmapData = JSON.parse(fileContent);
-        console.log('JSON解析成功');
-      } catch (jsonError) {
-        console.error('JSON解析失败:', jsonError);
+      // 检测文件格式
+      const fileFormat = detectFileFormat(fileContent);
+      console.log('检测到文件格式:', fileFormat);
+      
+      let formattedData;
+      
+      if (fileFormat === 'json') {
+        // 处理JSON格式
+        try {
+          const mindmapData = JSON.parse(fileContent);
+          console.log('JSON解析成功');
+          formattedData = convertToMindElixirFormat(mindmapData);
+        } catch (jsonError) {
+          console.error('JSON解析失败:', jsonError);
+          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+        }
+      } else if (fileFormat === 'xml') {
+        // 处理OPML/XML格式
+        try {
+          console.log('开始解析OPML/XML文件');
+          formattedData = await convertOpmlToMindElixir(fileContent);
+          console.log('OPML转换完成', formattedData);
+        } catch (xmlError) {
+          console.error('XML解析失败:', xmlError);
+          return NextResponse.json(DEFAULT_MINDMAP_DATA);
+        }
+      } else {
+        // 未知格式
+        console.error('未知文件格式');
         return NextResponse.json(DEFAULT_MINDMAP_DATA);
       }
       
-      // 转换数据为MindElixir兼容格式
-      const formattedData = convertToMindElixirFormat(mindmapData);
       console.log('数据格式转换完成，返回结果');
       return NextResponse.json(formattedData);
     } catch (fileError) {
