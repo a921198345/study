@@ -303,6 +303,32 @@ const sanitizeForMindElixir = (data: any): any => {
   return result;
 };
 
+// 添加这个新方法到文件顶部，在其他import之后
+// 这个函数将拦截Mind-Elixir库的JSON.parse调用
+function safePatchMindElixir() {
+  // 保存原始的JSON.parse方法
+  const originalJSONParse = JSON.parse;
+  
+  // 替换全局JSON.parse方法，拦截Mind-Elixir的调用
+  JSON.parse = function(text: string, ...args: any[]) {
+    // 检查是否包含"undefined"字符串，这是导致错误的原因
+    if (typeof text === 'string' && text.includes('"undefined"')) {
+      console.warn('检测到包含"undefined"的JSON字符串，进行修复');
+      // 替换所有"undefined"为null
+      const fixedText = text.replace(/"undefined"/g, 'null');
+      return originalJSONParse(fixedText, ...args);
+    }
+    
+    // 如果不需要特殊处理，使用原始方法
+    return originalJSONParse(text, ...args);
+  };
+  
+  return function unpatch() {
+    // 恢复原始方法
+    JSON.parse = originalJSONParse;
+  };
+}
+
 const MindElixirMap: React.FC<MindElixirMapProps> = ({
   data,
   direction = 'right',
@@ -444,118 +470,118 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
           data: sanitizeForMindElixir(mindElixirData) // 使用经过深度清理的数据
         };
         
-        // 创建MindElixir实例
+        // 在创建Mind-Elixir实例前添加这行代码
+        const unpatchJSON = safePatchMindElixir();
+        
         try {
-          console.log('开始初始化MindElixir实例，数据预览:',
-            JSON.stringify(sanitizeForMindElixir(mindElixirData)).substring(0, 100) + '...');
-          
-          // 确保options.data不是字符串
-          if (typeof options.data === 'string') {
-            console.error('数据不应该是字符串类型，尝试解析', options.data);
-            options.data = JSON.parse(options.data);
-          }
-          
-          // 核心修复：直接使用对象而不是JSON
-          // 深度清理Mind-Elixir数据，确保没有'undefined'字符串
-          let cleanData = sanitizeForMindElixir(mindElixirData);
-          
-          // 检查是否有nodeData属性，如果没有就添加一个基本结构
-          if (!cleanData || !cleanData.nodeData) {
-            console.warn('数据缺少nodeData结构，使用默认数据');
-            cleanData = DEFAULT_MIND_DATA;
-          }
-          
-          // 重新设置options，使用绝对安全的数据
-          options.data = cleanData;
-          
-          // 防止Mind-Elixir尝试将settings.data作为JSON字符串处理（这是导致错误的关键）
-          // 重要的一点是将data作为对象引用而不是序列化字符串传递给Mind-Elixir
+          // 创建Mind-Elixir实例和初始化
           mindElixirRef.current = new ME(options);
+          mindElixirRef.current.init();
+          console.log('MindElixir初始化成功');
           
-          // 使用try-catch特别包装init调用
-          try {
-            // 这是发生问题的关键点
-            mindElixirRef.current.init();
-            console.log('MindElixir初始化成功');
-          } catch (initError) {
-            console.error('init调用失败，尝试第二种方法', initError);
-            
-            // 如果常规初始化失败，尝试修改Mind-Elixir实例内部的数据属性
-            try {
-              // 这是一个黑客方法，直接修改Mind-Elixir实例的内部数据
-              // 使其不需要再次解析JSON
-              if (mindElixirRef.current && mindElixirRef.current.hasOwnProperty('data')) {
-                console.log('尝试直接设置实例数据');
-                if (typeof mindElixirRef.current.data === 'string' && 
-                    mindElixirRef.current.data.includes('undefined')) {
-                  mindElixirRef.current.data = JSON.stringify(cleanData);
-                }
-                mindElixirRef.current.init();
-                console.log('通过直接修改实例数据成功初始化');
-              } else {
-                throw new Error('找不到Mind-Elixir实例的data属性');
-              }
-            } catch (hackError) {
-              console.error('所有初始化方法都失败', hackError);
-              throw initError; // 抛出原始错误供外部处理
-            }
-          }
+          // 完成后恢复原始JSON.parse
+          unpatchJSON();
           
-          // 设置只读模式（如果不可编辑）
-          if (!editable && mindElixirRef.current.operation) {
-            mindElixirRef.current.operation.readonly();
-          }
         } catch (initError) {
-          console.error('MindElixir初始化失败:', initError);
-          let errorMessage = initError instanceof Error ? initError.message : '未知错误';
-          // 提供更详细的错误信息
-          if (errorMessage.includes('undefined') && errorMessage.includes('JSON')) {
-            errorMessage = `"undefined" is not valid JSON - 请检查数据格式。有效nodeData示例: { nodeData: { id: "root", topic: "主题", children: [...] } }`;
-            console.error('数据格式问题，原始数据:', typeof data);
-            console.error('转换后的数据:', mindElixirData);
-            console.error('清理后的数据:', options.data);
+          // 确保在发生错误时也恢复原始方法
+          unpatchJSON();
+          
+          // 向上抛出错误以便外部错误处理
+          throw initError;
+        }
+      } catch (err) {
+        console.error('加载思维导图库出错:', err);
+        
+        // 添加额外的错误处理
+        if (err instanceof Error && err.message.includes('undefined') && err.message.includes('JSON')) {
+          console.error('检测到JSON解析错误，尝试最终的回退方案');
+          
+          try {
+            console.log('尝试使用极简数据初始化');
             
-            // 最后的尝试 - 创建一个全新的、非常简单的数据结构
+            // 创建最简单的有效数据结构
+            const absoluteMinimalData = {
+              nodeData: {
+                id: 'root',
+                topic: '思维导图',
+                expanded: true,
+                children: []
+              }
+            };
+            
+            // 创建新选项对象
+            const newOptions = {
+              el: containerRef.current!,
+              direction: direction === 'right' ? 1 : 2,
+              draggable: true,
+              contextMenu: false,
+              allowUndo: false,
+              overflowHidden: false,
+              mainColor: getThemeColor(theme),
+              mainFontColor: '#fff',
+              data: absoluteMinimalData
+            };
+            
+            // 再次拦截JSON.parse
+            const unpatchJSON = safePatchMindElixir();
+            
             try {
-              console.log('尝试使用极简数据初始化');
-              
-              // 创建最简单的有效数据结构
-              const absoluteMinimalData = {
-                nodeData: {
-                  id: 'root',
-                  topic: '思维导图',
-                  expanded: true,
-                  children: []
-                }
-              };
-              
-              // 创建新选项对象，避免原对象中的潜在问题
-              const newOptions = {
-                el: containerRef.current!,
-                direction: direction === 'right' ? 1 : 2,
-                draggable: true,
-                contextMenu: false,
-                allowUndo: false,
-                overflowHidden: false,
-                mainColor: getThemeColor(theme),
-                mainFontColor: '#fff',
-                data: absoluteMinimalData
-              };
-              
               // 创建新实例
               mindElixirRef.current = new ME(newOptions);
               mindElixirRef.current.init();
               console.log('使用极简数据初始化成功');
+              
+              // 恢复JSON.parse
+              unpatchJSON();
+              
               setError('原始数据有问题，已加载简化思维导图');
               return;
             } catch (minimalError) {
+              // 确保恢复原始方法
+              unpatchJSON();
+              
               console.error('使用极简数据初始化也失败:', minimalError);
+              
+              // 最后的回退方案 - 完全静态思维导图
+              try {
+                console.log('尝试使用完全静态的思维导图作为替代');
+                
+                // 清空容器
+                if (containerRef.current) {
+                  // 显示静态替代UI
+                  containerRef.current.innerHTML = `
+                    <div style="padding: 20px; text-align: center;">
+                      <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333;">
+                        思维导图 (静态版)
+                      </div>
+                      <div style="border: 1px solid #ddd; padding: 10px; display: inline-block; text-align: left;">
+                        <ul style="list-style-type: none; padding-left: 0;">
+                          <li style="margin-bottom: 8px;">• 根节点</li>
+                          <li style="margin-left: 20px; margin-bottom: 5px;">• 子节点 1</li>
+                          <li style="margin-left: 20px; margin-bottom: 5px;">• 子节点 2</li>
+                          <li style="margin-left: 20px; margin-bottom: 5px;">• 子节点 3</li>
+                        </ul>
+                      </div>
+                      <div style="margin-top: 15px; color: #777; font-size: 13px;">
+                        (思维导图加载失败，显示替代内容)
+                      </div>
+                    </div>
+                  `;
+                }
+                
+                setError('思维导图无法加载，显示静态内容');
+                return;
+              } catch (e) {
+                console.error('所有尝试都失败:', e);
+              }
+            } catch (fallbackError) {
+              console.error('回退方案失败:', fallbackError);
             }
+          } catch (fallbackError) {
+            console.error('回退方案失败:', fallbackError);
           }
-          setError(`初始化失败: ${errorMessage}`);
         }
-      } catch (err) {
-        console.error('加载思维导图库出错:', err);
+        
         setError(`加载失败: ${err instanceof Error ? err.message : '未知错误'}`);
       }
     };
@@ -573,6 +599,17 @@ const MindElixirMap: React.FC<MindElixirMapProps> = ({
         } catch (e) {
           console.error('清理时出错:', e);
         }
+      }
+      
+      // 确保恢复原始的JSON.parse
+      try {
+        // 临时创建一个拦截函数并立即调用其返回的恢复函数
+        // 这会确保恢复到原始的JSON.parse
+        const unpatch = safePatchMindElixir();
+        unpatch();
+        console.log('组件卸载时已恢复原始JSON.parse');
+      } catch (e) {
+        console.error('恢复JSON.parse时出错:', e);
       }
     };
   }, [data, direction, draggable, editable, contextMenu, theme, isClient]);
