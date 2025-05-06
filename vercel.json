@@ -1,5 +1,6 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm install postcss-nested --save-dev && npm run build",
+  "installCommand": "npm install",
   "framework": "nextjs",
   "outputDirectory": ".next",
   "cleanUrls": true,
