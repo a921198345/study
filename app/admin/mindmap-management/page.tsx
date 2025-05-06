@@ -23,7 +23,7 @@ import {
 import Link from 'next/link';
 import type { UploadProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import ErrorBoundary from '@/components/error-boundary';
+import ErrorBoundary from '../../../components/error-boundary';
 
 const { Title, Paragraph } = Typography;
 const { Dragger } = Upload;
