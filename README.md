@@ -695,3 +695,21 @@
   - vercel.json
   - components/ui/index.ts
   - README.md 
+
+### 2023-05-06（当前日期）
+- **会话主要目的**：修复Vercel部署中的"Module not found"错误
+- **完成的主要任务**：
+  - 修复组件导入路径，将别名路径(@/)替换为相对路径
+  - 解决Git子模块警告，移除嵌套的.git目录
+  - 创建lib目录索引文件，确保所有工具函数可被正确导入
+  - 更新.gitignore，避免子模块问题
+- **关键决策和解决方案**：
+  - 对所有出错的模块导入使用相对路径，避免Vercel构建时的路径解析问题
+  - 通过删除嵌套的.git目录解决"Failed to fetch git submodules"警告
+  - 添加多个索引文件确保所有组件和工具都能被正确导入
+- **技术栈**：Next.js, TypeScript, Git, Vercel
+- **修改文件**：
+  - app/chat/page.tsx
+  - app/admin/mindmap-management/page.tsx
+  - lib/index.ts
+  - .gitignore 
