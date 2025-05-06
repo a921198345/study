@@ -48,13 +48,46 @@ const validateAndTransform = (data: any) => {
   // 处理可能包含undefined值的数据
   let cleanedData;
   try {
-    // 创建深拷贝并移除所有undefined值
-    cleanedData = JSON.parse(JSON.stringify(data, (_, v) => v === undefined ? null : v));
+    // 创建深拷贝并移除所有undefined值和"undefined"字符串
+    cleanedData = JSON.parse(JSON.stringify(data, (key, value) => {
+      // 处理undefined和"undefined"字符串
+      if (value === undefined || value === "undefined") {
+        return null;
+      }
+      return value;
+    }));
   } catch(err) {
     console.error('数据清理过程发生错误:', err);
     console.warn('使用默认数据');
     return DEFAULT_MINDMAP_DATA;
   }
+  
+  // 处理嵌套在数据中的"undefined"字符串
+  const sanitizeData = (obj: any): any => {
+    if (!obj) return obj;
+    
+    // 处理基础类型
+    if (typeof obj !== 'object') {
+      return obj === "undefined" ? null : obj;
+    }
+    
+    // 处理数组
+    if (Array.isArray(obj)) {
+      return obj.map(item => sanitizeData(item));
+    }
+    
+    // 处理对象
+    const result: Record<string, any> = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        result[key] = obj[key] === "undefined" ? null : sanitizeData(obj[key]);
+      }
+    }
+    return result;
+  };
+  
+  // 对数据进行深度清理
+  cleanedData = sanitizeData(cleanedData);
   
   // 如果数据已经包含nodeData字段(符合MindElixir格式)
   if (cleanedData.nodeData && typeof cleanedData.nodeData === 'object') {
@@ -194,8 +227,18 @@ export default function MindMapPage() {
         if (contentType.includes('application/json')) {
           // JSON响应
           try {
-            data = await res.json();
-            console.log('成功解析JSON响应');
+            const textResponse = await res.text();
+            
+            // 检查是否包含可能导致解析错误的"undefined"字符串
+            if (textResponse.includes('"undefined"')) {
+              console.warn('检测到响应中包含"undefined"字符串，尝试替换为null');
+              const fixedContent = textResponse.replace(/"undefined"/g, 'null');
+              data = JSON.parse(fixedContent);
+              console.log('替换后成功解析JSON');
+            } else {
+              data = JSON.parse(textResponse);
+              console.log('成功解析JSON响应');
+            }
           } catch (jsonError) {
             console.error('JSON解析失败:', jsonError);
             throw new Error(`JSON解析失败: ${jsonError instanceof Error ? jsonError.message : '未知错误'}`);
@@ -206,9 +249,15 @@ export default function MindMapPage() {
             const textContent = await res.text();
             console.warn('非JSON响应，尝试将文本解析为JSON:', textContent.substring(0, 100) + '...');
             
-            // 尝试将文本内容解析为JSON
+            // 尝试将文本内容解析为JSON，同时处理"undefined"字符串
             try {
-              data = JSON.parse(textContent);
+              if (textContent.includes('"undefined"')) {
+                console.warn('文本内容包含"undefined"字符串，尝试替换');
+                const fixedContent = textContent.replace(/"undefined"/g, 'null');
+                data = JSON.parse(fixedContent);
+              } else {
+                data = JSON.parse(textContent);
+              }
               console.log('成功将文本内容解析为JSON');
             } catch (parseErr) {
               console.error('无法将文本内容解析为JSON:', parseErr);
