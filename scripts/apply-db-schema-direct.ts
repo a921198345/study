@@ -11,15 +11,23 @@ async function applyDbSchema() {
     console.log('开始创建数据库表...');
     console.log(`当前Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
     
+    // 确保supabaseAdmin不为空
+    if (!supabaseAdmin) {
+      throw new Error('Supabase 管理员客户端未初始化，无法继续操作');
+    }
+    
+    // 创建非空的admin客户端变量
+    const admin = supabaseAdmin;
+    
     // 1. 创建subjects表
     console.log('创建subjects表...');
-    let { error: subjectsError } = await supabaseAdmin
+    let { error: subjectsError } = await admin
       .from('subjects')
       .select('id')
       .limit(1);
       
     if (subjectsError && subjectsError.code === 'PGRST301') {
-      const { error } = await supabaseAdmin.rpc('create_table', {
+      const { error } = await admin.rpc('create_table', {
         table_name: 'subjects',
         columns: `
           id SERIAL PRIMARY KEY,
@@ -43,13 +51,13 @@ async function applyDbSchema() {
     
     // 2. 创建chapters表
     console.log('创建chapters表...');
-    let { error: chaptersError } = await supabaseAdmin
+    let { error: chaptersError } = await admin
       .from('chapters')
       .select('id')
       .limit(1);
       
     if (chaptersError && chaptersError.code === 'PGRST301') {
-      const { error } = await supabaseAdmin.rpc('create_table', {
+      const { error } = await admin.rpc('create_table', {
         table_name: 'chapters',
         columns: `
           id SERIAL PRIMARY KEY,
@@ -74,13 +82,13 @@ async function applyDbSchema() {
     
     // 3. 创建knowledge_entries表
     console.log('创建knowledge_entries表...');
-    let { error: entriesError } = await supabaseAdmin
+    let { error: entriesError } = await admin
       .from('knowledge_entries')
       .select('id')
       .limit(1);
       
     if (entriesError && entriesError.code === 'PGRST301') {
-      const { error } = await supabaseAdmin.rpc('create_table', {
+      const { error } = await admin.rpc('create_table', {
         table_name: 'knowledge_entries',
         columns: `
           id SERIAL PRIMARY KEY,
