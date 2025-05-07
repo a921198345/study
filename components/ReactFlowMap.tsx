@@ -440,7 +440,8 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
         
         // 更新节点颜色
         setNodes(prevNodes => prevNodes.map(node => {
-          const level = node.data.level;
+          const nodeData = node.data as CustomNodeData;
+          const level = nodeData.level;
           const nodeColor = level === 0 ? newColors.root :
                            level === 1 ? newColors.level1 :
                            level === 2 ? newColors.level2 :
@@ -449,9 +450,9 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
           return {
             ...node,
             data: {
-              ...node.data,
+              ...nodeData,
               style: {
-                ...node.data.style,
+                ...nodeData.style,
                 background: nodeColor
               }
             }
