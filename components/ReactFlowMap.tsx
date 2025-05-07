@@ -51,7 +51,7 @@ const CustomNode = ({ data, isConnectable }: NodeProps) => {
     color: data.style?.color || 'white',
     fontWeight: data.level === 0 ? 'bold' : 
                 data.level === 1 ? 'bold' : 'normal',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     lineHeight: '1.3',
     padding: data.level === 0 ? '12px 16px' : 
              data.level === 1 ? '10px 14px' : 
