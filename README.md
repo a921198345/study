@@ -1431,3 +1431,30 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
 - 加入缩放适应功能，确保所有层级可见
 - 添加导出/导入更多格式支持
 - 进一步优化移动端体验
+
+## 2024-03-14 修复Vercel构建失败问题
+
+### 会话主要目的
+解决Vercel构建过程中出现的TypeScript类型错误，确保项目能够成功部署。
+
+### 完成的主要任务
+1. 修复了`ReactFlowMap.tsx`组件中的TypeScript类型错误
+2. 解决了`textAlign`属性类型不匹配的问题
+3. 提交并推送了修复后的代码到GitHub仓库
+
+### 关键决策和解决方案
+- 使用TypeScript的`as const`断言将`textAlign`属性从`string`类型转换为具体的`TextAlign`类型
+- 这种方式确保了类型安全，同时保持了代码的可读性和简洁性
+
+### 使用的技术栈
+- TypeScript
+- React Flow
+- Next.js
+
+### 修改的文件
+- `components/ReactFlowMap.tsx`: 修复了节点样式中的类型错误
+
+### 后续优化建议
+1. 考虑为所有样式对象添加明确的类型定义，避免类似的类型错误
+2. 在开发过程中使用更严格的TypeScript配置，及早发现类型问题
+3. 为React Flow组件添加更完善的类型定义，提高代码的类型安全性
