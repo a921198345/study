@@ -17,6 +17,8 @@ const nextConfig = {
   },
   // 确保react-icons包被正确处理
   transpilePackages: ['react-icons'],
+  // 静态导出配置
+  output: 'export',
 };
 
 module.exports = nextConfig; 
