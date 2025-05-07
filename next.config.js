@@ -30,6 +30,14 @@ const nextConfig = {
     
     return config;
   },
+  // 优化生产构建
+  swcMinify: true,
+  
+  // 提高构建性能
+  compiler: {
+    // 删除console.log语句
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
 };
 
 module.exports = nextConfig; 

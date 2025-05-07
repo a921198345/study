@@ -1,4 +1,10 @@
 {
-  "framework": "nextjs",
-  "cleanUrls": true
+  "version": 2,
+  "framework": null,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ]
 } 
