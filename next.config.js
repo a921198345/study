@@ -30,6 +30,8 @@ const nextConfig = {
     
     return config;
   },
+  // 配置静态网站导出
+  output: 'standalone',
 };
 
 module.exports = nextConfig; 
