@@ -287,9 +287,13 @@ async function fetchCompleteFileData(fileId: string) {
     
     console.log(`成功获取文件ID=${fileId}的数据`);
     return data;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('读取文件数据异常:', error);
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('未知错误');
+    }
   }
 }
 
@@ -414,7 +418,7 @@ async function convertOpmlToMindElixir(opmlContent: string) {
     const processedRoot = ensureNodeIds(rootNode);
     return { nodeData: processedRoot };
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('转换OPML出错:', error);
     return { nodeData: { root: { topic: '转换OPML时发生错误', children: [] } } };
   }
@@ -450,7 +454,7 @@ function convertToMindElixirFormat(data: any): any {
     // 不支持的格式，返回默认数据
     console.warn('转换失败: 未知数据结构', data);
     return DEFAULT_MINDMAP_DATA;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('转换数据时出错:', error);
     return DEFAULT_MINDMAP_DATA;
   }
@@ -494,7 +498,7 @@ async function getActiveMindMapFromSupabase() {
     
     console.log(`找到活跃思维导图: ${data.file_name}`);
     return data;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('获取思维导图数据失败:', error);
     return null;
   }
@@ -599,10 +603,11 @@ export async function GET(request: NextRequest) {
     console.log(`成功处理ID=${fileId}的思维导图数据`);
     return NextResponse.json(result);
   
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('获取思维导图数据时出错:', error);
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
     return NextResponse.json(
-      { error: `获取思维导图数据失败: ${error.message}` },
+      { error: `获取思维导图数据失败: ${errorMessage}` },
       { status: 500 }
     );
   }
