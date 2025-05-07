@@ -190,7 +190,7 @@ function sanitizeJsonString(jsonStr: string): string {
       try {
         // 尝试提取基本结构并重新构建JSON
         const regex = /"nodeData"[\s\S]*?\{([\s\S]*)\}/;
-        const match = regex.exec(fixed);
+        const match: RegExpExecArray | null = regex.exec(fixed);
         
         if (match && match[1]) {
           // 尝试基于提取的内容构建一个新的干净对象
@@ -210,7 +210,7 @@ function sanitizeJsonString(jsonStr: string): string {
           };
           
           // 尝试从提取的内容中恢复标题
-          const topicMatch = /"topic"\s*:\s*(?:null)?"([^"]+)"/i.exec(extractedContent);
+          const topicMatch: RegExpExecArray | null = /"topic"\s*:\s*(?:null)?"([^"]+)"/i.exec(extractedContent);
           if (topicMatch && topicMatch[1]) {
             newObj.nodeData.topic = topicMatch[1];
           }
@@ -538,7 +538,7 @@ export async function GET(request: NextRequest) {
     } catch (fetchError) {
       console.error('获取文件数据失败:', fetchError);
       return NextResponse.json(
-        { error: `获取文件数据失败: ${fetchError.message}` },
+        { error: `获取文件数据失败: ${(fetchError as Error).message}` },
         { status: 500 }
       );
     }
