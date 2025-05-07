@@ -60,7 +60,8 @@ const CustomNode = ({ data, isConnectable }: NodeProps) => {
     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
     border: '2px solid transparent',
     borderColor: data.style?.borderColor || 'transparent',
-    wordWrap: 'break-word',
+    overflowWrap: 'break-word' as const,
+    wordBreak: 'break-word' as const,
     opacity: data.level > 3 ? 0.9 : 1,
   };
 
@@ -94,6 +95,17 @@ interface MindNode {
   };
 }
 
+// 主题颜色接口
+interface ThemeColors {
+  root: string;
+  level1: string;
+  level2: string;
+  level3: string;
+  default: string;
+  background: string;
+  edge: string;
+}
+
 // 组件属性接口
 interface ReactFlowMapProps {
   data: MindNode | any;
@@ -105,6 +117,12 @@ interface ReactFlowMapProps {
   height?: string;
   width?: string;
   className?: string;
+}
+
+// 节点位置接口
+interface NodePosition {
+  x: number;
+  y: number;
 }
 
 // 验证数据的格式
@@ -157,7 +175,11 @@ const isValidData = (data: any): boolean => {
 };
 
 // 将Mind Elixir格式转换为ReactFlow格式
-const convertToReactFlow = (data: any, themeColors: any, direction: 'right' | 'side' = 'right') => {
+const convertToReactFlow = (
+  data: any, 
+  themeColors: ThemeColors, 
+  direction: 'right' | 'side' = 'right'
+): { nodes: Node[]; edges: Edge[] } => {
   console.log('ReactFlowMap: 开始数据转换...');
   
   // 如果没有有效数据，使用默认数据
@@ -321,7 +343,7 @@ const convertToReactFlow = (data: any, themeColors: any, direction: 'right' | 's
 };
 
 // 根据主题获取颜色
-const getThemeColors = (themeName: string = 'primary') => {
+const getThemeColors = (themeName: string = 'primary'): ThemeColors => {
   switch (themeName) {
     case 'dark':
       return {
@@ -379,14 +401,14 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   width = '100%',
   className = '',
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [themeColors, setThemeColors] = useState(getThemeColors(theme));
+  const [themeColors, setThemeColors] = useState<ThemeColors>(getThemeColors(theme));
   const [currentTheme, setCurrentTheme] = useState(theme);
   const [currentDirection, setCurrentDirection] = useState(direction);
-  const reactFlowWrapper = useRef(null);
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
   
   // 确保在客户端渲染
   useEffect(() => {
