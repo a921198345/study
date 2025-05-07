@@ -432,16 +432,15 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
     if (theme !== currentTheme) {
       console.log(`ReactFlowMap: 主题变更 ${currentTheme} -> ${theme}`);
       setCurrentTheme(theme);
-      setThemeColors(getThemeColors(theme));
+      const newColors = getThemeColors(theme);
+      setThemeColors(newColors);
       
       // 应用新主题颜色到现有节点和边
       if (nodes.length > 0) {
-        const newColors = getThemeColors(theme);
-        
         // 更新节点颜色
         setNodes((prevNodes) => 
           prevNodes.map((node) => {
-            const nodeData = node.data;
+            const nodeData = node.data as CustomNodeData;
             const level = nodeData.level;
             const nodeColor = level === 0 ? newColors.root :
                              level === 1 ? newColors.level1 :
@@ -499,7 +498,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data, themeColors, direction);
       
       // 设置节点和边缘
-      setNodes(flowNodes);
+      setNodes(flowNodes as Node<CustomNodeData>[]);
       setEdges(flowEdges);
       
       console.log('ReactFlowMap: 思维导图数据处理完成，节点数:', flowNodes.length);
@@ -507,7 +506,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       console.error('ReactFlowMap: 初始化思维导图出错:', err);
       setError('初始化思维导图时出错，请检查数据格式');
     }
-  }, [data, isClient, setNodes, setEdges, themeColors]);
+  }, [data, isClient, setNodes, setEdges, themeColors, direction]);
   
   // 处理节点点击
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
