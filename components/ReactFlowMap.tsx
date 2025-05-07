@@ -413,8 +413,9 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   width = '100%',
   className = '',
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<CustomNodeData>>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  // 定义节点和边的类型
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [isClient, setIsClient] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [themeColors, setThemeColors] = useState<ThemeColors>(getThemeColors(theme));
@@ -439,8 +440,9 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       if (nodes.length > 0) {
         // 更新节点颜色
         const updatedNodes = nodes.map((node) => {
-          const nodeData = node.data;
-          const level = nodeData.level;
+          if (!node.data) return node;
+          
+          const level = node.data.level;
           const nodeColor = level === 0 ? newColors.root :
                            level === 1 ? newColors.level1 :
                            level === 2 ? newColors.level2 :
@@ -449,9 +451,9 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
           return {
             ...node,
             data: {
-              ...nodeData,
+              ...node.data,
               style: {
-                ...nodeData.style,
+                ...(node.data.style || {}),
                 background: nodeColor
               }
             }
@@ -460,18 +462,19 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
         
         setNodes(updatedNodes);
         
-        // 更新连接线颜色
-        const updatedEdges = edges.map((edge) => ({
-          ...edge,
-          style: {
-            ...edge.style,
-            stroke: newColors.edge
-          },
-          markerEnd: {
-            ...edge.markerEnd,
-            color: newColors.edge
-          }
-        }));
+        // 更新连接线颜色 - 简化设置方式
+        const updatedEdges = edges.map((edge) => {
+          // 创建新的边对象，只设置颜色属性
+          return {
+            ...edge,
+            style: {
+              ...(edge.style || {}),
+              stroke: newColors.edge
+            },
+            // 直接指定 markerEnd 为字符串类型
+            markerEnd: MarkerType.ArrowClosed,
+          };
+        });
         
         setEdges(updatedEdges);
       }
