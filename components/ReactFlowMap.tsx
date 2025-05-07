@@ -438,45 +438,45 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       // 应用新主题颜色到现有节点和边
       if (nodes.length > 0) {
         // 更新节点颜色
-        setNodes((prevNodes) => 
-          prevNodes.map((node) => {
-            const nodeData = node.data as CustomNodeData;
-            const level = nodeData.level;
-            const nodeColor = level === 0 ? newColors.root :
-                             level === 1 ? newColors.level1 :
-                             level === 2 ? newColors.level2 :
-                             level === 3 ? newColors.level3 : newColors.default;
-                             
-            return {
-              ...node,
-              data: {
-                ...nodeData,
-                style: {
-                  ...nodeData.style,
-                  background: nodeColor
-                }
+        const updatedNodes = nodes.map((node) => {
+          const nodeData = node.data;
+          const level = nodeData.level;
+          const nodeColor = level === 0 ? newColors.root :
+                           level === 1 ? newColors.level1 :
+                           level === 2 ? newColors.level2 :
+                           level === 3 ? newColors.level3 : newColors.default;
+                           
+          return {
+            ...node,
+            data: {
+              ...nodeData,
+              style: {
+                ...nodeData.style,
+                background: nodeColor
               }
-            };
-          })
-        );
+            }
+          };
+        });
+        
+        setNodes(updatedNodes);
         
         // 更新连接线颜色
-        setEdges((prevEdges) => 
-          prevEdges.map((edge) => ({
-            ...edge,
-            style: {
-              ...edge.style,
-              stroke: newColors.edge
-            },
-            markerEnd: {
-              ...edge.markerEnd,
-              color: newColors.edge
-            }
-          }))
-        );
+        const updatedEdges = edges.map((edge) => ({
+          ...edge,
+          style: {
+            ...edge.style,
+            stroke: newColors.edge
+          },
+          markerEnd: {
+            ...edge.markerEnd,
+            color: newColors.edge
+          }
+        }));
+        
+        setEdges(updatedEdges);
       }
     }
-  }, [theme, currentTheme, nodes, setNodes, setEdges]);
+  }, [theme, currentTheme, nodes, edges, setNodes, setEdges]);
   
   // 监听方向变化
   useEffect(() => {
@@ -498,7 +498,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(data, themeColors, direction);
       
       // 设置节点和边缘
-      setNodes(flowNodes as Node<CustomNodeData>[]);
+      setNodes(flowNodes);
       setEdges(flowEdges);
       
       console.log('ReactFlowMap: 思维导图数据处理完成，节点数:', flowNodes.length);
