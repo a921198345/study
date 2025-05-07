@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm install tailwindcss-animate && next build",
     "export": "next build && next export -o out",
     "build:static": "npm run export",
     "start": "next start",
