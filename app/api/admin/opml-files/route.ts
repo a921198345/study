@@ -4,6 +4,12 @@ import { supabaseAdmin } from '@/lib/supabase';
 // 从Supabase获取思维导图文件列表
 async function getFileListFromSupabase() {
   try {
+    // 检查supabaseAdmin是否为null
+    if (!supabaseAdmin) {
+      console.error('supabaseAdmin未初始化，可能是环境变量缺失');
+      return { files: [], error: '数据库连接未初始化' };
+    }
+    
     // 查询所有思维导图文件
     const { data, error } = await supabaseAdmin
       .from('mindmaps')

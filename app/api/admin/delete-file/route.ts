@@ -16,6 +16,15 @@ export async function POST(request: NextRequest) {
     
     console.log(`请求删除文件: ${fileId}`);
     
+    // 检查supabaseAdmin是否为null
+    if (!supabaseAdmin) {
+      console.error('supabaseAdmin未初始化，可能是环境变量缺失');
+      return NextResponse.json(
+        { success: false, message: '服务器配置错误：数据库连接未初始化' },
+        { status: 500 }
+      );
+    }
+    
     // 首先检查文件是否为活跃状态
     const { data: fileData, error: fileError } = await supabaseAdmin
       .from('mindmaps')

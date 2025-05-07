@@ -101,6 +101,12 @@ function countNodes(node: MindElixirNode): number {
 // 更新Supabase中的活跃思维导图
 async function setActiveFile(fileId: string) {
   try {
+    // 检查supabaseAdmin是否为null
+    if (!supabaseAdmin) {
+      console.error('supabaseAdmin未初始化，可能是环境变量缺失');
+      throw new Error('数据库连接未初始化');
+    }
+    
     // 先将所有mindmap设置为非活跃
     await supabaseAdmin
       .from('mindmaps')
@@ -153,6 +159,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: true, message: '文件大小不能超过10MB' },
         { status: 400 }
+      );
+    }
+    
+    // 检查supabaseAdmin是否为null
+    if (!supabaseAdmin) {
+      console.error('supabaseAdmin未初始化，可能是环境变量缺失');
+      return NextResponse.json(
+        { error: true, message: '服务器配置错误：数据库连接未初始化' },
+        { status: 500 }
       );
     }
     
