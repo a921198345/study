@@ -413,8 +413,8 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   width = '100%',
   className = '',
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<CustomNodeData>[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<CustomNodeData>>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isClient, setIsClient] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [themeColors, setThemeColors] = useState<ThemeColors>(getThemeColors(theme));
@@ -439,38 +439,42 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
         const newColors = getThemeColors(theme);
         
         // 更新节点颜色
-        setNodes(prevNodes => prevNodes.map(node => {
-          const nodeData = node.data as CustomNodeData;
-          const level = nodeData.level;
-          const nodeColor = level === 0 ? newColors.root :
-                           level === 1 ? newColors.level1 :
-                           level === 2 ? newColors.level2 :
-                           level === 3 ? newColors.level3 : newColors.default;
-                           
-          return {
-            ...node,
-            data: {
-              ...nodeData,
-              style: {
-                ...nodeData.style,
-                background: nodeColor
+        setNodes((prevNodes) => 
+          prevNodes.map((node) => {
+            const nodeData = node.data;
+            const level = nodeData.level;
+            const nodeColor = level === 0 ? newColors.root :
+                             level === 1 ? newColors.level1 :
+                             level === 2 ? newColors.level2 :
+                             level === 3 ? newColors.level3 : newColors.default;
+                             
+            return {
+              ...node,
+              data: {
+                ...nodeData,
+                style: {
+                  ...nodeData.style,
+                  background: nodeColor
+                }
               }
-            }
-          };
-        }));
+            };
+          })
+        );
         
         // 更新连接线颜色
-        setEdges(prevEdges => prevEdges.map(edge => ({
-          ...edge,
-          style: {
-            ...edge.style,
-            stroke: newColors.edge
-          },
-          markerEnd: {
-            ...edge.markerEnd,
-            color: newColors.edge
-          }
-        })));
+        setEdges((prevEdges) => 
+          prevEdges.map((edge) => ({
+            ...edge,
+            style: {
+              ...edge.style,
+              stroke: newColors.edge
+            },
+            markerEnd: {
+              ...edge.markerEnd,
+              color: newColors.edge
+            }
+          }))
+        );
       }
     }
   }, [theme, currentTheme, nodes, setNodes, setEdges]);
