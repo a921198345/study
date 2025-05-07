@@ -1,16 +1,20 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import axios, { AxiosError } from 'axios';
+import { supabase } from '../../lib/supabase';
+import { FiRefreshCw, FiLayout, FiSun, FiMoon } from 'react-icons/fi';
 import "./mindmap.css";
 import ErrorBoundary from '../../components/error-boundary';
 
-// 动态导入ReactFlow组件以避免服务端渲染问题
+// 动态加载ReactFlowMap组件
 const ReactFlowMap = dynamic(() => import('../../components/ReactFlowMap'), {
   ssr: false,
   loading: () => (
-    <div className="flex justify-center items-center h-[600px]">
-      <div className="animate-spin text-4xl text-gray-600">⟳</div>
+    <div className="flex items-center justify-center h-full w-full">
+      <div className="animate-pulse text-gray-500">思维导图加载中...</div>
     </div>
   ),
 });
@@ -93,146 +97,264 @@ function validateAndTransform(data: any) {
 }
 
 // 思维导图页面组件
-export default function MindMapPage() {
-  const [data, setData] = useState(DEFAULT_MINDMAP_DATA);
-  const [viewMode, setViewMode] = useState<'right' | 'side'>('right');
-  const [theme, setTheme] = useState<'primary' | 'dark' | 'green' | 'purple'>('primary');
+export default function MindmapPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  const [mapData, setMapData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [direction, setDirection] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
+  const [useTestData, setUseTestData] = useState(false);
+  
+  // 获取测试数据
+  const fetchTestData = async () => {
+    try {
+      console.log('获取测试思维导图数据');
+      setLoading(true);
+      
+      const response = await axios.get('/api/mindmap-test');
+      
+      if (response.data) {
+        console.log('测试思维导图数据获取成功');
+        setMapData(response.data);
+        setUseTestData(true);
+      } else {
+        setError('获取测试思维导图数据失败');
+      }
+    } catch (err: unknown) {
+      console.error('获取测试思维导图数据时出错:', err);
+      const errorMessage = err instanceof Error ? err.message : '未知错误';
+      setError(`获取测试思维导图数据时出错: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 获取活跃思维导图
+  const fetchActiveMindmap = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // 先检查是否强制使用测试数据
+      if (searchParams.get('test') === 'true') {
+        await fetchTestData();
+        return;
+      }
+      
+      // 先从URL参数获取ID
+      const id = searchParams.get('id');
+      
+      // 如果URL中有ID，直接使用
+      if (id) {
+        setActiveId(id);
+        try {
+          await fetchMindmapData(id);
+        } catch (fetchError) {
+          console.error('获取思维导图数据失败，尝试使用测试数据:', fetchError);
+          await fetchTestData();
+        }
+        return;
+      }
+      
+      // 检查 supabase 是否可用
+      if (!supabase) {
+        console.error('Supabase 客户端未初始化，可能是环境变量缺失');
+        console.log('使用测试数据作为备选');
+        await fetchTestData();
+        return;
+      }
+      
+      try {
+        // 先不使用single()查询，避免在没有活跃数据时出错
+        const { data, error } = await supabase
+          .from('mindmaps')
+          .select('id')
+          .eq('is_active', true)
+          .limit(1);
+        
+        // 改进错误处理逻辑，只有当错误对象有实际内容时才视为错误
+        if (error && Object.keys(error).length > 0) {
+          console.error('获取活跃思维导图失败:', error);
+          console.log('使用测试数据作为备选');
+          await fetchTestData();
+          return;
+        }
+        
+        // 即使error是空对象{}，也继续检查data
+        if (data && data.length > 0) {
+          setActiveId(data[0].id);
+          try {
+            await fetchMindmapData(data[0].id);
+          } catch (fetchError) {
+            console.error('获取思维导图数据失败，尝试使用测试数据:', fetchError);
+            await fetchTestData();
+          }
+        } else {
+          console.log('未找到活跃的思维导图，使用测试数据');
+          await fetchTestData();
+        }
+      } catch (queryError) {
+        console.error('查询活跃思维导图时出错:', queryError);
+        console.log('使用测试数据作为备选');
+        await fetchTestData();
+      }
+    } catch (err: any) {
+      console.error('获取活跃思维导图流程出错:', err);
+      setError('获取思维导图数据失败，请刷新页面重试');
+      setLoading(false);
+    }
+  };
   
   // 获取思维导图数据
-  useEffect(() => {
-    const fetchMindMapData = async () => {
-      try {
-        console.log('获取思维导图数据...');
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch('/api/mindmap-data');
-        
-        if (!response.ok) {
-          throw new Error(`API响应错误: ${response.status} ${response.statusText}`);
-        }
-        
-        let apiData;
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
-          apiData = await response.json();
-          console.log('获取到JSON数据', apiData);
-        } else {
-          // 非JSON响应
-          const text = await response.text();
-          console.log('获取到非JSON数据', text.substring(0, 100));
-          // 尝试作为JSON解析
-          try {
-            apiData = JSON.parse(text);
-          } catch (e) {
-            console.error('解析非JSON响应失败', e);
-            apiData = text;
-          }
-        }
-        
-        // 验证并转换数据
-        const transformedData = validateAndTransform(apiData);
-        console.log('转换后的思维导图数据', transformedData);
-        
-        setData(transformedData);
-        setLoading(false);
-      } catch (error) {
-        console.error('获取思维导图数据失败', error);
-        setError('获取思维导图数据失败。请检查API或网络连接。');
-        setLoading(false);
+  const fetchMindmapData = async (id: string) => {
+    try {
+      console.log(`正在获取思维导图数据, ID: ${id}`);
+      const response = await axios.get(`/api/mindmap-data?id=${id}`);
+      
+      if (response.data) {
+        console.log('思维导图数据获取成功');
+        setMapData(response.data);
+      } else {
+        throw new Error('获取思维导图数据失败');
       }
-    };
-    
-    fetchMindMapData();
+    } catch (err: unknown) {
+      console.error('获取思维导图数据时出错:', err);
+      const errorMessage = err instanceof Error ? err.message : '未知错误';
+      throw new Error(`获取思维导图数据失败: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 切换布局方向
+  const toggleDirection = () => {
+    setDirection(prev => prev === 'horizontal' ? 'vertical' : 'horizontal');
+  };
+  
+  // 切换主题模式
+  const toggleTheme = () => {
+    setDarkMode(prev => !prev);
+    // 应用深色/浅色主题到文档
+    document.documentElement.classList.toggle('dark-theme');
+  };
+  
+  // 切换数据源
+  const toggleDataSource = async () => {
+    setLoading(true);
+    if (useTestData) {
+      // 从测试数据切换到真实数据
+      setUseTestData(false);
+      await fetchActiveMindmap();
+    } else {
+      // 从真实数据切换到测试数据
+      await fetchTestData();
+    }
+  };
+  
+  // 刷新思维导图
+  const refreshMindmap = () => {
+    if (useTestData) {
+      fetchTestData();
+    } else if (activeId) {
+      setLoading(true);
+      fetchMindmapData(activeId).catch(err => {
+        console.error('刷新思维导图失败:', err);
+        fetchTestData();
+      });
+    } else {
+      fetchActiveMindmap();
+    }
+  };
+  
+  // 初始加载
+  useEffect(() => {
+    fetchActiveMindmap();
   }, []);
   
-  // 切换视图模式
-  const toggleViewMode = () => {
-    console.log(`切换视图模式: ${viewMode} -> ${viewMode === 'right' ? 'side' : 'right'}`);
-    setViewMode(viewMode === 'right' ? 'side' : 'right');
-  };
-  
-  // 切换主题
-  const toggleTheme = () => {
-    const themes: Array<'primary' | 'dark' | 'green' | 'purple'> = ['primary', 'dark', 'green', 'purple'];
-    const currentIndex = themes.indexOf(theme);
-    const nextIndex = (currentIndex + 1) % themes.length;
-    const nextTheme = themes[nextIndex];
-    console.log(`切换主题: ${theme} -> ${nextTheme}`);
-    setTheme(nextTheme);
-  };
-  
   return (
-    <div className="flex flex-col w-full h-screen overflow-hidden">
-      {/* 工具栏 */}
-      <div className="flex justify-between items-center p-2 bg-white dark:bg-gray-800 border-b">
-        <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-          AI考试助手 - 思维导图
-        </div>
-        <div className="flex gap-3">
-          {/* 视图模式切换按钮 */}
-          <button
-            onClick={toggleViewMode}
-            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors z-10"
-            title={viewMode === 'right' ? '切换到中心布局' : '切换到右侧布局'}
-          >
-            {viewMode === 'right' ? (
-              <span className="text-gray-600 dark:text-gray-300 text-xl">⏹</span>
-            ) : (
-              <span className="text-gray-600 dark:text-gray-300 text-xl">⟿</span>
-            )}
-          </button>
-          
-          {/* 主题切换按钮 */}
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors z-10"
-            title="切换主题"
-          >
-            {theme === 'dark' ? (
-              <span className="text-gray-600 dark:text-gray-300 text-xl">☀️</span>
-            ) : (
-              <span className="text-gray-600 dark:text-gray-300 text-xl">🌙</span>
-            )}
-          </button>
-        </div>
+    <div className={`mindmap-container ${darkMode ? 'dark-theme' : ''}`}>
+      {/* 控制栏 */}
+      <div className="control-panel">
+        <button
+          onClick={toggleDirection}
+          className="control-button"
+          title={direction === 'horizontal' ? '切换到垂直布局' : '切换到水平布局'}
+        >
+          <FiLayout />
+          <span className="button-text">{direction === 'horizontal' ? '垂直布局' : '水平布局'}</span>
+        </button>
+        
+        <button
+          onClick={toggleTheme}
+          className="control-button"
+          title={darkMode ? '切换到亮色主题' : '切换到暗色主题'}
+        >
+          {darkMode ? <FiSun /> : <FiMoon />}
+          <span className="button-text">{darkMode ? '亮色主题' : '暗色主题'}</span>
+        </button>
+        
+        <button
+          onClick={toggleDataSource}
+          className="control-button"
+          title={useTestData ? '切换到真实数据' : '切换到测试数据'}
+        >
+          <FiRefreshCw />
+          <span className="button-text">{useTestData ? '真实数据' : '测试数据'}</span>
+        </button>
+        
+        <button
+          onClick={refreshMindmap}
+          className="control-button"
+          title="刷新思维导图"
+        >
+          <FiRefreshCw />
+          <span className="button-text">刷新</span>
+        </button>
       </div>
       
-      {/* 思维导图 */}
-      <div className="flex-1 relative">
+      {/* 主要内容区 */}
+      <div className="mindmap-content">
         {loading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin text-4xl text-gray-600 mr-2">⟳</div>
-            <span className="ml-2 text-gray-600">加载思维导图...</span>
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>思维导图加载中...</p>
           </div>
         ) : error ? (
-          <div className="flex flex-col justify-center items-center h-full">
-            <div className="text-red-500 text-xl mb-2">{error}</div>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              重新加载
+          <div className="error-container">
+            <p className="error-message">{error}</p>
+            <button onClick={refreshMindmap} className="retry-button">
+              重试
+            </button>
+            <button onClick={fetchTestData} className="test-data-button">
+              使用测试数据
             </button>
           </div>
-        ) : (
+        ) : mapData ? (
           <ErrorBoundary>
             <div className="bg-white border rounded-lg shadow-sm overflow-hidden" style={{ height: '80vh' }}>
               <ReactFlowMap
-                data={data}
-                direction={viewMode}
-                theme={theme}
-                draggable={true}
-                editable={false}
-                contextMenu={false}
-                height="100%"
-                width="100%"
+                data={mapData}
+                direction={direction}
+                theme={darkMode ? 'dark' : 'primary'}
               />
             </div>
+            {useTestData && (
+              <div className="text-center mt-2 text-xs text-gray-500">
+                当前使用测试数据，无需数据库连接
+              </div>
+            )}
           </ErrorBoundary>
+        ) : (
+          <div className="empty-container">
+            <p>没有思维导图数据</p>
+            <button onClick={fetchTestData} className="test-data-button">
+              使用测试数据
+            </button>
+          </div>
         )}
       </div>
     </div>

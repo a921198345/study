@@ -29,46 +29,44 @@ const DEFAULT_MIND_DATA = {
 };
 
 // 自定义节点组件
-const CustomNode = ({ data, isConnectable }: NodeProps) => {
-  // 根据层级调整样式
-  const color = data.level === 0 ? '#ff9500' : 
-               data.level === 1 ? '#9b59b6' : 
-               data.level === 2 ? '#2ecc71' : 
-               data.level === 3 ? '#3498db' : '#f39c12';
+const CustomNode = ({ data, id, selected }: NodeProps) => {
+  const level = data?.level || 0;
+  const maxWidth = Math.max(300 - level * 30, 150); // 根据层级减小节点宽度
+  const fontSize = Math.max(16 - level, 12);        // 根据层级调整字体大小
   
-  // 根据层级调整节点大小和字体大小
-  const nodeStyles = {
-    background: data.style?.background || color,
-    minWidth: data.level === 0 ? '200px' : 
-              data.level === 1 ? '180px' : 
-              data.level === 2 ? '150px' : '120px',
-    maxWidth: data.level === 0 ? '300px' : 
-              data.level === 1 ? '280px' : 
-              data.level === 2 ? '250px' : '200px',
-    fontSize: data.level === 0 ? '18px' : 
-              data.level === 1 ? '16px' : 
-              data.level === 2 ? '14px' : '12px',
-    color: data.style?.color || 'white',
-    fontWeight: data.level === 0 ? 'bold' : 
-                data.level === 1 ? 'bold' : 'normal',
-    textAlign: 'center' as const,
-    lineHeight: '1.3',
-    padding: data.level === 0 ? '12px 16px' : 
-             data.level === 1 ? '10px 14px' : 
-             data.level === 2 ? '8px 12px' : '6px 10px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    border: '2px solid transparent',
-    borderColor: data.style?.borderColor || 'transparent',
-    overflowWrap: 'break-word' as const,
-    wordBreak: 'break-word' as const,
-    opacity: data.level > 3 ? 0.9 : 1,
+  // 根据层级设置不同的颜色
+  const getColor = () => {
+    const colors = [
+      { bg: '#f8fafc', border: '#475569' }, // 根节点 - 浅灰色
+      { bg: '#eff6ff', border: '#3b82f6' }, // 一级 - 蓝色
+      { bg: '#f0fdf4', border: '#22c55e' }, // 二级 - 绿色
+      { bg: '#fff7ed', border: '#f97316' }, // 三级 - 橙色
+      { bg: '#fef2f2', border: '#ef4444' }, // 四级 - 红色
+      { bg: '#faf5ff', border: '#a855f7' }, // 五级 - 紫色
+    ];
+    return colors[level % colors.length];
   };
-
+  
+  const color = getColor();
+  
   return (
     <div
-      className="shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
-      style={nodeStyles}
+      className={`reactflow-node ${selected ? 'selected' : ''}`}
+      style={{
+        background: color.bg,
+        borderColor: color.border,
+        borderWidth: level === 0 ? '2px' : '1px',
+        borderStyle: 'solid',
+        borderRadius: '6px',
+        padding: '10px 15px',
+        maxWidth: `${maxWidth}px`,
+        fontSize: `${fontSize}px`,
+        fontWeight: level <= 1 ? 'bold' : 'normal',
+        boxShadow: selected ? '0 0 0 2px #3b82f6' : 'none',
+        overflow: 'hidden',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}
     >
       {data.label}
     </div>
@@ -121,7 +119,7 @@ interface ThemeColors {
 // 组件属性接口
 interface ReactFlowMapProps {
   data: MindNode | any;
-  direction?: 'right' | 'side';
+  direction?: 'horizontal' | 'vertical';
   draggable?: boolean;
   editable?: boolean;
   contextMenu?: boolean;
@@ -190,7 +188,7 @@ const isValidData = (data: any): boolean => {
 const convertToReactFlow = (
   data: any, 
   themeColors: ThemeColors, 
-  direction: 'right' | 'side' = 'right'
+  direction: 'horizontal' | 'vertical' = 'horizontal'
 ): { nodes: Node[]; edges: Edge[] } => {
   console.log('ReactFlowMap: 开始数据转换...');
   
@@ -242,13 +240,13 @@ const convertToReactFlow = (
   console.log(`ReactFlowMap: 思维导图最大深度: ${maxDepth}`);
   
   // 递归处理节点
-  const processNode = (node: any, parentId: string | null = null, level: number = 0, position = { x: 0, y: 0 }, dir: string = 'right') => {
+  const processNode = (node: any, parentId: string | null = null, level: number = 0, index: number = 0, siblingCount: number = 1, x: number = 0, y: number = 0) => {
     if (!node) {
       console.warn('ReactFlowMap: 处理空节点');
-      return;
+      return null;
     }
     
-    // 确保节点有ID
+    // 确保节点有唯一ID
     const id = String(node.id || `node-${Math.random().toString(36).substr(2, 9)}`);
     
     // 确保节点有标题
@@ -264,88 +262,107 @@ const convertToReactFlow = (
                  level === 3 ? themeColors.level3 : themeColors.default
     };
     
-    // 添加节点
-    nodes.push({
+    // 计算当前节点位置
+    let position;
+    const horizontalSpacing = 300; // 节点间的水平间距
+    const verticalSpacing = 100;   // 节点间的垂直间距
+    
+    if (direction === 'horizontal') {
+      position = {
+        x: level * horizontalSpacing,
+        y: siblingCount > 1 
+          ? index * verticalSpacing - (siblingCount - 1) * verticalSpacing / 2 + y
+          : y
+      };
+    } else {
+      position = {
+        x: siblingCount > 1 
+          ? index * horizontalSpacing - (siblingCount - 1) * horizontalSpacing / 2 + x
+          : x,
+        y: level * verticalSpacing,
+      };
+    }
+    
+    // 创建ReactFlow节点
+    const rfNode: Node = {
       id,
-      type: 'custom',
       position,
       data: { 
         label, 
         level,
         style: { ...nodeStyle, ...(node.style || {}) }
       },
-      style: {
-        width: 'auto',
-        height: 'auto',
-      },
-    });
+      type: 'custom',
+      // 设置源和目标连接点位置
+      sourcePosition: direction === 'horizontal' ? Position.Right : Position.Bottom,
+      targetPosition: direction === 'horizontal' ? Position.Left : Position.Top,
+    };
     
-    // 如果有父节点，添加连接边
-    if (parentId) {
-      edges.push({
-        id: `e-${parentId}-${id}`,
-        source: parentId,
-        target: id,
-        type: 'smoothstep',
-        animated: false,
-        style: { 
-          stroke: themeColors.edge, 
-          strokeWidth: level === 1 ? 3 : 2,
-          opacity: 0.8
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 15,
-          height: 15,
-          color: themeColors.edge,
-        },
+    nodes.push(rfNode);
+    
+    // 处理子节点
+    if (node.children && Array.isArray(node.children) && node.children.length > 0) {
+      const childCount = node.children.length;
+      
+      // 为子节点留出足够空间
+      const childSpacing = direction === 'horizontal' 
+        ? verticalSpacing
+        : horizontalSpacing;
+      
+      // 子节点布局位置
+      let childY = position.y;
+      let childX = position.x;
+      
+      // 针对拥有多个子节点的节点，计算它们的起始位置
+      if (childCount > 1) {
+        if (direction === 'horizontal') {
+          childY = position.y - (childCount - 1) * childSpacing / 2;
+        } else {
+          childX = position.x - (childCount - 1) * childSpacing / 2;
+        }
+      }
+      
+      node.children.forEach((child: any, idx: number) => {
+        // 递归处理子节点
+        const childId = processNode(
+          child, 
+          id, 
+          level + 1, 
+          idx, 
+          childCount, 
+          direction === 'horizontal' ? position.x + horizontalSpacing : childX + idx * childSpacing,
+          direction === 'horizontal' ? childY + idx * childSpacing : position.y + verticalSpacing
+        );
+        
+        if (childId) {
+          // 创建连接边
+          const edge: Edge = {
+            id: `e-${id}-${childId}`,
+            source: id,
+            target: childId,
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: themeColors.edge, strokeWidth: 1.5 },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 15,
+              height: 15,
+              color: themeColors.edge,
+            },
+          };
+          
+          edges.push(edge);
+        }
       });
     }
     
-    // 处理子节点 - 使用计算的间距
-    if (node.children && Array.isArray(node.children)) {
-      const childCount = node.children.length;
-      console.log(`ReactFlowMap: 处理节点 ${id} 的 ${childCount} 个子节点`);
-      
-      // 根据层级和子节点数量动态调整间距
-      const horizontalSpacing = level === 0 ? 350 : 
-                               level === 1 ? 300 : 
-                               level === 2 ? 250 : 200;
-      
-      const verticalSpacing = 50 + (Math.min(childCount, 10) * 10);
-      
-      // 根据子节点总高度计算起始Y坐标
-      const totalHeight = (childCount - 1) * verticalSpacing;
-      const startY = position.y - totalHeight / 2;
-      
-      node.children
-        .filter((child: any) => child) // 过滤空子节点
-        .forEach((child: any, index: number) => {
-          let childPosition;
-          
-          if (dir === 'right' || (dir === 'side' && level % 2 === 0)) {
-            // 右侧布局 或 side模式下的偶数层级
-            childPosition = {
-              x: position.x + horizontalSpacing,
-              y: startY + (index * verticalSpacing)
-            };
-          } else {
-            // side模式下的奇数层级
-            childPosition = {
-              x: position.x - horizontalSpacing,
-              y: startY + (index * verticalSpacing)
-            };
-          }
-          
-          processNode(child, id, level + 1, childPosition, dir);
-        });
-    }
+    return id;
   };
   
   // 从根节点开始处理
   try {
     console.log('ReactFlowMap: 开始从根节点处理');
-    processNode(rootNode, null, 0, { x: 200, y: 300 }, direction);
+    processNode(rootNode, null, 0, 0, 1, 0, 0);
     console.log(`ReactFlowMap: 处理完成，生成 ${nodes.length} 个节点和 ${edges.length} 条边`);
   } catch (error) {
     console.error('ReactFlowMap: 处理节点时出错:', error);
@@ -404,7 +421,7 @@ const getThemeColors = (themeName: string = 'primary'): ThemeColors => {
 // 主组件
 const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   data,
-  direction = 'right',
+  direction = 'horizontal',
   draggable = true,
   editable = false,
   contextMenu = false,

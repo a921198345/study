@@ -1,9 +1,240 @@
 /* 思维导图容器样式 */
 .mindmap-container {
-  width: 100%;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f5f8fa;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* 暗色主题样式 */
+.mindmap-container.dark-theme {
+  background-color: #1a202c;
+  color: #e2e8f0;
+}
+
+/* 控制面板样式 */
+.control-panel {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark-theme .control-panel {
+  background-color: #2d3748;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 控制按钮样式 */
+.control-button {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin-right: 12px;
+  background-color: #edf2f7;
+  border: none;
+  border-radius: 6px;
+  color: #4a5568;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dark-theme .control-button {
+  background-color: #4a5568;
+  color: #e2e8f0;
+}
+
+.control-button:hover {
+  background-color: #e2e8f0;
+  color: #2d3748;
+}
+
+.dark-theme .control-button:hover {
+  background-color: #718096;
+  color: #fff;
+}
+
+.control-button svg {
+  margin-right: 6px;
+}
+
+.button-text {
+  font-weight: 500;
+}
+
+/* 内容区域样式 */
+.mindmap-content {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 8px;
   position: relative;
-  transition: all 0.3s ease;
+}
+
+/* 加载状态样式 */
+.loading-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 10;
+}
+
+.dark-theme .loading-container {
+  background-color: rgba(26, 32, 44, 0.7);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-radius: 50%;
+  border-top-color: #3182ce;
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 16px;
+}
+
+.dark-theme .loading-spinner {
+  border-color: #4a5568;
+  border-top-color: #63b3ed;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 错误状态样式 */
+.error-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 24px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.dark-theme .error-container {
+  background-color: #2d3748;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.error-message {
+  margin-bottom: 16px;
+  color: #e53e3e;
+  font-size: 16px;
+}
+
+.dark-theme .error-message {
+  color: #fc8181;
+}
+
+.retry-button, .test-data-button {
+  padding: 8px 16px;
+  background-color: #3182ce;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  margin: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.retry-button:hover, .test-data-button:hover {
+  background-color: #2c5282;
+}
+
+.test-data-button {
+  background-color: #38a169;
+}
+
+.test-data-button:hover {
+  background-color: #2f855a;
+}
+
+/* 空状态样式 */
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+}
+
+.dark-theme .empty-container {
+  background-color: #2d3748;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 测试数据提示样式 */
+.test-data-hint {
+  text-align: center;
+  padding: 4px 8px;
+  background-color: #fefcbf;
+  color: #744210;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-top: 8px;
+  display: inline-block;
+}
+
+.dark-theme .test-data-hint {
+  background-color: #744210;
+  color: #fefcbf;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .mindmap-container {
+    padding: 8px;
+  }
+  
+  .control-panel {
+    flex-wrap: wrap;
+  }
+  
+  .control-button {
+    margin-bottom: 8px;
+  }
+  
+  .button-text {
+    display: none;
+  }
+  
+  .control-button svg {
+    margin-right: 0;
+  }
+}
+
+/* ReactFlow节点样式 */
+.reactflow-node {
+  transition: all 0.2s ease;
+}
+
+.reactflow-node.selected {
+  box-shadow: 0 0 0 2px #3182ce !important;
 }
 
 /* 思维导图节点悬停效果 */
@@ -29,38 +260,6 @@
   background-color: #f0f0f0;
 }
 
-/* 工具栏按钮 */
-.toolbar-button {
-  cursor: pointer;
-  border-radius: 50%;
-  padding: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  background-color: transparent;
-}
-
-.toolbar-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-/* 确保工具栏按钮在最顶层 */
-.toolbar-buttons {
-  position: relative;
-  z-index: 1000;
-}
-
-/* 修复React Flow面板和控件在暗色模式的样式 */
-.dark .react-flow__controls-button {
-  background-color: #2d3748;
-  color: #e2e8f0;
-}
-
-.dark .react-flow__controls-button:hover {
-  background-color: #4a5568;
-}
-
 /* 增强节点连接线可见性 */
 .mindmap-container .react-flow__edge {
   stroke-width: 2px;
@@ -82,12 +281,70 @@
   pointer-events: auto !important;
 }
 
-/* 加载样式 */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
+/* 动画效果 */
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+/* 节点样式 - 根据层级显示不同样式 */
+.node-level-0 {
+  background-color: #ebf8ff;
+  border: 2px solid #63b3ed;
+  color: #2c5282;
+  font-weight: bold;
+}
+
+.node-level-1 {
+  background-color: #e6fffa;
+  border: 2px solid #4fd1c5;
+  color: #234e52;
+}
+
+.node-level-2 {
+  background-color: #f0fff4;
+  border: 2px solid #68d391;
+  color: #22543d;
+}
+
+.node-level-3 {
+  background-color: #fffaf0;
+  border: 2px solid #f6ad55;
+  color: #7b341e;
+}
+
+.node-level-4 {
+  background-color: #fff5f5;
+  border: 2px solid #fc8181;
+  color: #822727;
+}
+
+/* 深色主题下的节点样式 */
+.dark-theme .node-level-0 {
+  background-color: #2c5282;
+  border-color: #63b3ed;
+  color: #ebf8ff;
+}
+
+.dark-theme .node-level-1 {
+  background-color: #234e52;
+  border-color: #4fd1c5;
+  color: #e6fffa;
+}
+
+.dark-theme .node-level-2 {
+  background-color: #22543d;
+  border-color: #68d391;
+  color: #f0fff4;
+}
+
+.dark-theme .node-level-3 {
+  background-color: #7b341e;
+  border-color: #f6ad55;
+  color: #fffaf0;
+}
+
+.dark-theme .node-level-4 {
+  background-color: #822727;
+  border-color: #fc8181;
+  color: #fff5f5;
 } 

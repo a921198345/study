@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { parseStringPromise } from 'xml2js'; // 导入xml2js库解析OPML文件
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, supabase } from '@/lib/supabase';
+import xml2js from 'xml2js';
+import { v4 as uuidv4 } from 'uuid';
 
 // 默认思维导图数据，当文件不存在时返回 - 修改为与MindElixir兼容的格式
 const DEFAULT_MINDMAP_DATA = {
@@ -245,290 +247,171 @@ function sanitizeJsonString(jsonStr: string): string {
   }
 }
 
-// 递归为节点添加ID
-const ensureNodeIds = (node: any, prefix: string = 'node'): any => {
-  if (!node) return null;
+// 增强的函数，确保能处理大型OPML文件
+async function fetchCompleteFileData(fileId) {
+  try {
+    // 检查 supabase 客户端是否可用
+    if (!supabase && !supabaseAdmin) {
+      console.error('Supabase 客户端未初始化，可能是环境变量缺失');
+      console.error('NEXT_PUBLIC_SUPABASE_URL 存在:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY 存在:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+      console.error('SUPABASE_SERVICE_KEY 存在:', !!process.env.SUPABASE_SERVICE_KEY);
+      throw new Error('数据库连接失败，请检查环境配置');
+    }
+    
+    // 优先使用 supabaseAdmin，如果不可用则使用 supabase
+    const client = supabaseAdmin || supabase;
+    
+    console.log(`尝试从Supabase获取文件ID=${fileId}的数据`);
+    
+    const { data, error } = await client
+      .from('mindmaps')
+      .select('opml_content, json_content')
+      .eq('id', fileId)
+      .single();
+    
+    if (error) {
+      console.error('获取文件数据错误:', error);
+      throw new Error(`获取文件数据错误: ${error.message}`);
+    }
+
+    if (!data) {
+      console.error(`未找到ID=${fileId}的文件数据`);
+      throw new Error(`未找到ID=${fileId}的文件数据`);
+    }
+    
+    console.log(`成功获取文件ID=${fileId}的数据`);
+    return data;
+  } catch (error) {
+    console.error('读取文件数据异常:', error);
+    throw error;
+  }
+}
+
+// 增强的ID生成函数，确保唯一性
+function generateUniqueId(prefix = 'node', existingIds = new Set()) {
+  let id;
+  do {
+    id = `${prefix}-${uuidv4().substring(0, 8)}`;
+  } while (existingIds.has(id));
   
-  // 如果节点没有ID，生成一个唯一ID
+  existingIds.add(id);
+  return id;
+}
+
+// 递归处理所有节点，确保每个节点都有唯一ID
+function ensureNodeIds(node, parentId = null, level = 0, existingIds = new Set()) {
+  if (!node) return node;
+  
+  // 确保节点有ID
   if (!node.id) {
-    node.id = `${prefix}-${Math.random().toString(36).substring(2, 11)}`;
+    node.id = generateUniqueId('node', existingIds);
   }
   
-  // 确保topic存在
+  // 处理子节点
+  if (node.children && Array.isArray(node.children)) {
+    node.children = node.children.map(child => 
+      ensureNodeIds(child, node.id, level + 1, existingIds)
+    );
+  }
+  
+  // 为保险起见，确保节点有topic属性
   if (!node.topic && node.text) {
     node.topic = node.text;
   } else if (!node.topic) {
     node.topic = '未命名节点';
   }
   
-  // 处理子节点
-  if (node.children && Array.isArray(node.children)) {
-    for (let i = 0; i < node.children.length; i++) {
-      node.children[i] = ensureNodeIds(node.children[i], `${node.id}-${i}`);
-    }
-  }
+  // 记录节点的层级，用于后续布局
+  node.level = level;
+  node.parentId = parentId;
   
   return node;
-};
+}
 
-// 将OPML格式转换为Mind-Elixir格式
-async function convertOpmlToMindElixir(xmlContent: string): Promise<any> {
+// 改进的OPML转换函数，更健壮地处理各种格式
+async function convertOpmlToMindElixir(opmlContent) {
   try {
-    // 解析XML内容
-    const result = await parseStringPromise(xmlContent, { 
-      explicitArray: false,
-      trim: true,
-      normalize: true
-    });
+    const parser = new xml2js.Parser({ explicitArray: false });
+    const result = await parser.parseStringPromise(opmlContent);
     
-    console.log('OPML解析结果结构:', JSON.stringify(result).substring(0, 200) + '...');
-    
-    // 检查是否是有效的OPML格式
-    if (!result.opml || !result.opml.body || !result.opml.body.outline) {
-      console.warn('无效的OPML格式:', result);
-      return DEFAULT_MINDMAP_DATA;
+    if (!result || !result.opml || !result.opml.body || !result.opml.body.outline) {
+      console.error('OPML结构无效');
+      return { nodeData: { root: { topic: '无效的OPML数据', children: [] } } };
     }
     
-    // 获取根节点
-    const rootOutline = Array.isArray(result.opml.body.outline) 
-      ? result.opml.body.outline[0] 
-      : result.opml.body.outline;
-    
-    // 记录ID递增
-    let idCounter = 0;
-    
-    // 递归将OPML转为Mind-Elixir格式
-    function convertNode(node: any, index: number = 0, path: string = ''): any {
-      if (!node) return null;
-      
-      // 生成唯一ID
-      idCounter++;
-      // 避免在ID中使用可能导致JSON解析问题的特殊字符
-      // 确保ID中不包含空格或其他特殊字符，使用更严格的过滤规则
-      const nodeId = `node-${path.replace(/\s+/g, '')}-${idCounter}`.replace(/[^a-zA-Z0-9-_]/g, '-');
-      
-      // 提取标题（增强版 - 处理MuBu格式）
-      let topic = '';
-      
-      // MuBu格式特殊处理 - 先检查$属性
-      if (node.$ && node.$.text) {
-        topic = String(node.$.text);
-      } 
-      // 处理MuBu特有的_mubu_text属性（URL编码的HTML）
-      else if (node._mubu_text) {
-        try {
-          // 解码URL编码
-          const decoded = decodeURIComponent(node._mubu_text);
-          // 移除HTML标签
-          topic = decoded.replace(/<\/?[^>]+(>|$)/g, "");
-        } catch (e) {
-          console.warn('解码_mubu_text失败:', e);
-          topic = String(node._mubu_text).substr(0, 30) + '...';
-        }
-      }
-      // 然后检查直接text属性
-      else if (node.text) {
-        topic = String(node.text);
-      }
-      // 其他可能的属性
-      else if (node._text) {
-        topic = String(node._text);
-      } else if (node.title) {
-        topic = String(node.title);
-      } else if (node._title) {
-        topic = String(node._title); 
-      } else {
-        topic = '未命名节点';
-      }
-      
-      // 安全处理文本内容，移除可能导致JSON格式问题的字符
-      topic = String(topic)
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        // 处理可能破坏JSON格式的字符
-        .replace(/\\/g, '\\\\')  // 转义反斜杠
-        .replace(/"/g, '\\"')    // 转义双引号
-        .replace(/\n/g, '\\n')   // 转义换行符
-        .replace(/\r/g, '\\r')   // 转义回车符
-        .replace(/\t/g, '\\t')   // 转义制表符
-        .replace(/\f/g, '\\f')   // 转义换页符
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // 移除控制字符
-      
-      // 创建节点 - 确保所有值都是正确的数据类型
-      const mindNode: any = {
-        id: nodeId,
-        topic: topic,
-        expanded: true
-      };
-      
-      // 处理子节点
-      if (node.outline) {
-        const childNodes = Array.isArray(node.outline) ? node.outline : [node.outline];
-        mindNode.children = childNodes
-          .filter((child: any) => child) // 过滤空值
-          .map((child: any, idx: number) => 
-            convertNode(child, idx, `${path}-${idx}`)
-          )
-          .filter(Boolean); // 过滤null结果
-      } else {
-        // 确保children属性始终存在，即使是空数组
-        mindNode.children = [];
-      }
-      
-      return mindNode;
+    // 提取标题，优先从OPML头部获取
+    let rootTopic = '思维导图';
+    if (result.opml.head && result.opml.head.title) {
+      rootTopic = result.opml.head.title;
     }
     
     // 创建根节点
-    const rootNode = convertNode(rootOutline, 0, 'root');
-    
-    // 确保根节点有ID和topic
-    if (!rootNode.id) {
-      rootNode.id = 'root';
-    }
-    
-    if (!rootNode.topic || rootNode.topic === '') {
-      // 尝试从OPML标题获取根节点标题
-      const title = result.opml.head?.title || '思维导图';
-      // 安全处理标题文本
-      rootNode.topic = String(title)
-        .replace(/\\/g, '\\\\')  // 转义反斜杠
-        .replace(/"/g, '\\"')    // 转义双引号
-        .replace(/\n/g, '\\n')   // 转义换行符
-        .replace(/\r/g, '\\r')   // 转义回车符
-        .replace(/\t/g, '\\t');  // 转义制表符
-    }
-    
-    // 确保expanded字段是布尔值
-    rootNode.expanded = rootNode.expanded === true || rootNode.expanded === 'true' ? true : false;
-    
-    // 确保children字段是数组
-    if (!Array.isArray(rootNode.children)) {
-      rootNode.children = [];
-    }
-    
-    // 创建安全的结果对象 - 确保所有格式和类型正确
-    const result_data = {
-      nodeData: {
-        id: String(rootNode.id || 'root'),
-        topic: String(rootNode.topic || '思维导图'),
-        expanded: rootNode.expanded === true || rootNode.expanded === 'true' ? true : false,
-        children: Array.isArray(rootNode.children) ? rootNode.children.filter(Boolean) : []
-      }
+    const rootNode = {
+      id: 'root',
+      topic: rootTopic,
+      children: []
     };
     
-    // 额外的安全检查：确保每个子节点都有有效的id和topic
-    if (Array.isArray(result_data.nodeData.children)) {
-      result_data.nodeData.children = result_data.nodeData.children.map(child => {
-        if (!child) return null;
-        return {
-          id: String(child.id || `child-${Math.random().toString(36).substr(2, 9)}`),
-          topic: String(child.topic || '节点'),
-          expanded: child.expanded === true || child.expanded === 'true' ? true : false,
-          children: Array.isArray(child.children) ? child.children.filter(Boolean) : []
+    // 递归处理OPML节点
+    function processOutline(outline, parent) {
+      if (!outline) return;
+      
+      const outlines = Array.isArray(outline) ? outline : [outline];
+      
+      outlines.forEach(item => {
+        // 提取节点文本，按优先级处理多种可能的属性
+        let nodeTopic = '未命名节点';
+        
+        // 处理MuBu思维导图特殊格式
+        if (item._mubu_text) {
+          try {
+            // 解码URL编码并移除HTML标签
+            nodeTopic = decodeURIComponent(item._mubu_text).replace(/<[^>]*>/g, '');
+          } catch (e) {
+            nodeTopic = item._mubu_text;
+          }
+        } 
+        // 处理常规属性
+        else if (item.text) {
+          nodeTopic = item.text;
+        } else if (item.$ && item.$.text) {
+          nodeTopic = item.$.text;
+        } else if (item._) {
+          nodeTopic = item._;
+        } else if (item.$ && item.$.title) {
+          nodeTopic = item.$.title;
+        } else if (item.title) {
+          nodeTopic = item.title;
+        }
+        
+        // 创建节点
+        const node = {
+          id: `node-${uuidv4().substring(0, 8)}`,
+          topic: nodeTopic.trim(),
+          children: []
         };
-      }).filter(Boolean); // 过滤掉null值
+        
+        // 添加到父节点
+        parent.children.push(node);
+        
+        // 处理子节点
+        if (item.outline) {
+          processOutline(item.outline, node);
+        }
+      });
     }
     
-    // 确保所有节点（包括深层嵌套节点）都有ID
-    result_data.nodeData = ensureNodeIds(result_data.nodeData);
+    // 开始处理
+    processOutline(result.opml.body.outline, rootNode);
     
-    // 记录一些节点示例以便调试
-    if (result_data.nodeData.children && result_data.nodeData.children.length > 0) {
-      try {
-        console.log('示例子节点:', JSON.stringify({
-          firstChildId: result_data.nodeData.children[0].id,
-          firstChildTopic: result_data.nodeData.children[0].topic,
-          childrenCount: result_data.nodeData.children.length
-        }));
-      } catch (jsonError) {
-        console.warn('示例子节点JSON序列化失败:', jsonError);
-      }
-    }
+    // 确保所有节点都有ID并返回标准格式
+    const processedRoot = ensureNodeIds(rootNode);
+    return { nodeData: processedRoot };
     
-    // 额外的验证检查
-    if (!result_data.nodeData || !result_data.nodeData.id || !result_data.nodeData.topic) {
-      console.error('转换结果无效，缺少必要字段');
-      return DEFAULT_MINDMAP_DATA;
-    }
-    
-    // 最终安全检查：尝试序列化和反序列化以验证JSON格式
-    let jsonString = ''; // 在外部定义变量，确保在catch块中可访问
-    try {
-      jsonString = JSON.stringify(result_data);
-      
-      // 主动检查所有的响应数据是否包含格式问题
-      console.warn('API响应前进行深度格式检查和修复');
-      
-      // 使用增强的JSON修复函数对所有数据进行处理
-      const sanitizedJson = sanitizeJsonString(jsonString);
-      
-      try {
-        // 解析修复后的JSON
-        const validatedData = JSON.parse(sanitizedJson);
-        
-        // 深度验证数据结构
-        if (!validatedData || typeof validatedData !== 'object') {
-          console.warn('修复后的数据不是有效对象，使用默认数据');
-          return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
-        }
-        
-        // 确保nodeData结构存在且合法
-        if (!validatedData.nodeData || 
-            typeof validatedData.nodeData !== 'object' || 
-            !validatedData.nodeData.id || 
-            !validatedData.nodeData.topic) {
-          console.warn('修复后的数据结构不完整，使用默认数据');
-          return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
-        }
-        
-        // 确保nodeData.children是数组
-        if (validatedData.nodeData.children && !Array.isArray(validatedData.nodeData.children)) {
-          console.warn('children不是数组，修复数据结构');
-          validatedData.nodeData.children = [];
-        }
-        
-        // 确保expanded是布尔值
-        validatedData.nodeData.expanded = 
-          validatedData.nodeData.expanded === true || 
-          validatedData.nodeData.expanded === 'true' ? true : false;
-        
-        // 最终安全检查 - 再次序列化和解析以确保JSON格式有效
-        const finalCheck = JSON.stringify(validatedData);
-        JSON.parse(finalCheck); // 如果这里出错，会被catch捕获
-        
-        console.log('数据格式验证通过，返回修复后的数据');
-        return validatedData; // 直接返回数据对象，不是NextResponse
-      } catch (validationError) {
-        console.error('最终验证失败，返回默认数据:', validationError);
-        return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
-      }
-    } catch (jsonError) {
-      console.error('最终JSON验证失败，尝试数据修复');
-      
-      try {
-        // 最后的挽救尝试：使用formattedData直接进行修复尝试
-        // 如果之前的jsonString有效，使用它；否则重新尝试序列化
-        const dataToFix = jsonString || (result_data ? JSON.stringify(result_data) : '{}');
-        const emergencyFixed = sanitizeJsonString(dataToFix);
-        
-        // 如果修复成功就返回修复后的数据
-        if (emergencyFixed !== '{}') {
-          const emergencyData = JSON.parse(emergencyFixed);
-          console.log('紧急修复成功，返回修复后的数据');
-          return emergencyData; // 直接返回数据对象，不是NextResponse
-        }
-      } catch (finalError) {
-        console.error('紧急修复也失败，返回默认数据');
-      }
-      
-      return DEFAULT_MINDMAP_DATA; // 直接返回数据对象，不是NextResponse
-    }
   } catch (error) {
-    console.error('转换OPML文件失败:', error);
-    return DEFAULT_MINDMAP_DATA;
+    console.error('转换OPML出错:', error);
+    return { nodeData: { root: { topic: '转换OPML时发生错误', children: [] } } };
   }
 }
 
@@ -573,8 +456,17 @@ async function getActiveMindMapFromSupabase() {
   try {
     console.log('从Supabase获取活跃思维导图数据');
     
+    // 检查 supabase 客户端是否可用
+    if (!supabaseAdmin && !supabase) {
+      console.error('Supabase 客户端未初始化，可能是环境变量缺失');
+      throw new Error('数据库连接失败，请检查环境配置');
+    }
+    
+    // 优先使用 supabaseAdmin，如果不可用则使用 supabase
+    const client = supabaseAdmin || supabase;
+    
     // 查询活跃的思维导图
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await client
       .from('mindmaps')
       .select('*')
       .eq('is_active', true)
@@ -600,95 +492,108 @@ async function getActiveMindMapFromSupabase() {
 
 export async function GET(request: NextRequest) {
   try {
-    // 获取活跃的思维导图数据
-    const activeMindMap = await getActiveMindMapFromSupabase();
+    // 从请求获取ID
+    const { searchParams } = new URL(request.url);
+    const fileId = searchParams.get('id');
     
-    // 如果没有找到活跃思维导图，返回默认数据
-    if (!activeMindMap) {
-      console.log('没有活跃的思维导图，返回默认数据');
-      return NextResponse.json(DEFAULT_MINDMAP_DATA);
+    if (!fileId) {
+      console.error('未提供文件ID');
+      return NextResponse.json(
+        { error: '未提供文件ID' },
+        { status: 400 }
+      );
     }
     
-    // 如果有json_content字段，直接使用
-    if (activeMindMap.json_content) {
-      console.log('使用存储的JSON数据');
-      
-      // 进行额外验证
-      if (validateMindMapData(activeMindMap.json_content.nodeData)) {
-        return NextResponse.json(activeMindMap.json_content);
-      } else {
-        console.warn('存储的JSON数据无效，尝试修复');
-        
-        // 尝试修复JSON
-        try {
-          // 将对象转为字符串再修复
-          const jsonString = JSON.stringify(activeMindMap.json_content);
-          const fixedJsonString = sanitizeJsonString(jsonString);
-          const fixedData = JSON.parse(fixedJsonString);
-          
-          if (validateMindMapData(fixedData.nodeData)) {
-            console.log('JSON修复成功');
-            return NextResponse.json(fixedData);
+    // 检查Supabase客户端是否初始化
+    if (!supabase && !supabaseAdmin) {
+      console.error('Supabase客户端未初始化，无法处理请求');
+      return NextResponse.json(
+        { 
+          error: 'Supabase客户端未初始化，请检查环境配置', 
+          details: {
+            supabase_url_exists: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+            supabase_key_exists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+            service_key_exists: !!process.env.SUPABASE_SERVICE_KEY
           }
-        } catch (e) {
-          console.error('JSON修复失败:', e);
-          // 继续处理，尝试其他方法
-        }
-      }
+        },
+        { status: 500 }
+      );
     }
     
-    // 如果json_content无效或不存在，尝试使用OPML内容
-    if (activeMindMap.opml_content) {
-      console.log('尝试解析OPML内容');
+    console.log(`正在获取ID=${fileId}的思维导图数据`);
+    
+    let fileData;
+    try {
+      fileData = await fetchCompleteFileData(fileId);
+    } catch (fetchError) {
+      console.error('获取文件数据失败:', fetchError);
+      return NextResponse.json(
+        { error: `获取文件数据失败: ${fetchError.message}` },
+        { status: 500 }
+      );
+    }
+    
+    if (!fileData) {
+      return NextResponse.json(
+        { error: '未找到文件数据' },
+        { status: 404 }
+      );
+    }
+    
+    let result;
+    
+    // 优先使用已存储的JSON数据
+    if (fileData.json_content) {
+      console.log(`找到文件ID=${fileId}的JSON数据`);
       
-      try {
-        // 检测文件格式
-        const format = detectFileFormat(activeMindMap.opml_content);
-        
-        if (format === 'xml') {
-          // 将OPML转换为Mind-Elixir格式
-          const mindElixirData = await convertOpmlToMindElixir(activeMindMap.opml_content);
-          
-          // 增加日志，查看转换返回的数据类型和内容
-          console.log('OPML转换返回数据类型:', typeof mindElixirData);
-          console.log('OPML转换返回数据包含字段:', Object.keys(mindElixirData || {}));
-          
-          // 确保返回的是有效对象且包含nodeData
-          if (mindElixirData && typeof mindElixirData === 'object' && mindElixirData.nodeData) {
-            // 增加额外的nodeData验证
-            if (validateMindMapData(mindElixirData.nodeData)) {
-              console.log('OPML转换成功，数据验证通过');
-              
-              // 确保所有节点（包括深层嵌套节点）都有ID
-              const processedData = {
-                ...mindElixirData,
-                nodeData: ensureNodeIds(mindElixirData.nodeData)
-              };
-              
-              return NextResponse.json(processedData);
-            } else {
-              console.warn('OPML转换返回的数据无效，nodeData结构不正确');
-            }
-          } else {
-            console.warn('OPML转换返回的数据无效，不是对象或缺少nodeData:', mindElixirData);
-          }
-        } else {
-          console.warn('文件格式不是XML:', format);
-        }
-      } catch (e) {
-        console.error('OPML处理失败，详细错误:', e);
-        // 继续处理，返回默认数据
-      }
-    } else {
-      console.warn('活跃思维导图没有OPML内容');
+      // 验证并确保所有节点都有ID
+      const jsonData = typeof fileData.json_content === 'string' 
+        ? JSON.parse(fileData.json_content) 
+        : fileData.json_content;
+      
+      // 获取根节点
+      const rootData = jsonData.nodeData || jsonData;
+      const rootNode = rootData.root || rootData;
+      
+      // 确保所有节点都有唯一ID
+      const processedData = { nodeData: ensureNodeIds(rootNode) };
+      
+      result = processedData;
+    }
+    // 如果没有JSON数据，从OPML转换
+    else if (fileData.opml_content) {
+      console.log(`将文件ID=${fileId}的OPML内容转换为思维导图数据`);
+      result = await convertOpmlToMindElixir(fileData.opml_content);
+    }
+    else {
+      console.error(`文件ID=${fileId}的数据不完整`);
+      return NextResponse.json(
+        { error: '文件数据不完整，缺少json_content和opml_content' },
+        { status: 400 }
+      );
     }
     
-    // 如果所有尝试都失败，返回默认数据
-    console.warn('所有数据处理尝试失败，返回默认数据');
-    return NextResponse.json(DEFAULT_MINDMAP_DATA);
+    // 最终验证和修复
+    if (!validateMindMapData(result)) {
+      console.warn('数据验证失败，尝试修复');
+      // 尝试构建最小可用结构
+      result = {
+        nodeData: {
+          id: 'root',
+          topic: '数据加载错误，已创建临时结构',
+          children: []
+        }
+      };
+    }
     
+    console.log(`成功处理ID=${fileId}的思维导图数据`);
+    return NextResponse.json(result);
+  
   } catch (error) {
-    console.error('获取思维导图数据过程中出错，详细错误:', error);
-    return NextResponse.json(DEFAULT_MINDMAP_DATA);
+    console.error('获取思维导图数据时出错:', error);
+    return NextResponse.json(
+      { error: `获取思维导图数据失败: ${error.message}` },
+      { status: 500 }
+    );
   }
 } 
