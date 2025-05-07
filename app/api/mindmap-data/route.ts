@@ -262,6 +262,11 @@ async function fetchCompleteFileData(fileId: string) {
     // 优先使用 supabaseAdmin，如果不可用则使用 supabase
     const client = supabaseAdmin || supabase;
     
+    // 显式检查确保client不为null (TypeScript类型安全)
+    if (!client) {
+      throw new Error('无法初始化Supabase客户端');
+    }
+    
     console.log(`尝试从Supabase获取文件ID=${fileId}的数据`);
     
     const { data, error } = await client
@@ -464,6 +469,11 @@ async function getActiveMindMapFromSupabase() {
     
     // 优先使用 supabaseAdmin，如果不可用则使用 supabase
     const client = supabaseAdmin || supabase;
+    
+    // 显式检查确保client不为null (TypeScript类型安全)
+    if (!client) {
+      throw new Error('无法初始化Supabase客户端');
+    }
     
     // 查询活跃的思维导图
     const { data, error } = await client
