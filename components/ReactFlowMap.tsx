@@ -95,6 +95,18 @@ interface MindNode {
   };
 }
 
+// 自定义节点数据接口
+interface CustomNodeData {
+  label: string;
+  level: number;
+  style?: {
+    background?: string;
+    color?: string;
+    fontSize?: string;
+    borderColor?: string;
+  };
+}
+
 // 主题颜色接口
 interface ThemeColors {
   root: string;
@@ -401,7 +413,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   width = '100%',
   className = '',
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<CustomNodeData>[]>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [error, setError] = useState<string | null>(null);
