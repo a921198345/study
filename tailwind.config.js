@@ -73,5 +73,30 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // 内联实现 tailwindcss-animate 的基本功能
+    function({ addBase, addUtilities }) {
+      addBase({
+        ':root': {
+          '--animation-duration': '150ms',
+          '--animation-timing': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        },
+      });
+      
+      addUtilities({
+        '.animate-in': {
+          animationName: 'enter',
+          animationDuration: 'var(--animation-duration)',
+          animationTimingFunction: 'var(--animation-timing)',
+          animationFillMode: 'forwards',
+        },
+        '.animate-out': {
+          animationName: 'exit',
+          animationDuration: 'var(--animation-duration)',
+          animationTimingFunction: 'var(--animation-timing)',
+          animationFillMode: 'forwards',
+        }
+      });
+    }
+  ],
 } 
