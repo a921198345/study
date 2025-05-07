@@ -169,7 +169,7 @@ function sanitizeJsonString(jsonStr: string): string {
     fixed = fixed.replace(/,,+/g, ',');
     
     // 10. 修复缺少值的属性
-    fixed = fixed.replace(/"[^"]+"\s*:/g, (match) => {
+    fixed = fixed.replace(/"[^"]+"\s*:/g, (match: string) => {
       if (match.endsWith(':')) {
         return match + 'null';
       }
@@ -364,7 +364,7 @@ async function convertOpmlToMindElixir(opmlContent: string) {
       
       const outlines = Array.isArray(outline) ? outline : [outline];
       
-      outlines.forEach(item => {
+      outlines.forEach((item: any) => {
         // 提取节点文本，按优先级处理多种可能的属性
         let nodeTopic = '未命名节点';
         
