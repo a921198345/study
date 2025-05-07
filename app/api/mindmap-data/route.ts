@@ -315,7 +315,7 @@ function ensureNodeIds(node: any, parentId: string | null = null, level: number 
   
   // 处理子节点
   if (node.children && Array.isArray(node.children)) {
-    node.children = node.children.map(child => 
+    node.children = node.children.map((child: any) => 
       ensureNodeIds(child, node.id, level + 1, existingIds)
     );
   }
