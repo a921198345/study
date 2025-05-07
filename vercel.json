@@ -2,7 +2,7 @@
   "buildCommand": "npm install tailwindcss postcss-nested autoprefixer --save-dev && npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next/standalone",
+  "outputDirectory": "out",
   "cleanUrls": true,
   "env": {
     "NODE_ENV": "production"
