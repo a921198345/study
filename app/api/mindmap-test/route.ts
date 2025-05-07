@@ -47,10 +47,10 @@ export async function GET(request: NextRequest) {
     
     // 返回默认思维导图数据
     return NextResponse.json(DEFAULT_MINDMAP_DATA);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('测试API出错:', error);
     return NextResponse.json(
-      { error: `测试API出错: ${error.message}` },
+      { error: `测试API出错: ${(error as Error).message}` },
       { status: 500 }
     );
   }
