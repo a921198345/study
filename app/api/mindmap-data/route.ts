@@ -248,7 +248,7 @@ function sanitizeJsonString(jsonStr: string): string {
 }
 
 // 增强的函数，确保能处理大型OPML文件
-async function fetchCompleteFileData(fileId) {
+async function fetchCompleteFileData(fileId: string) {
   try {
     // 检查 supabase 客户端是否可用
     if (!supabase && !supabaseAdmin) {
@@ -289,7 +289,7 @@ async function fetchCompleteFileData(fileId) {
 }
 
 // 增强的ID生成函数，确保唯一性
-function generateUniqueId(prefix = 'node', existingIds = new Set()) {
+function generateUniqueId(prefix: string = 'node', existingIds: Set<string> = new Set<string>()) {
   let id;
   do {
     id = `${prefix}-${uuidv4().substring(0, 8)}`;
@@ -300,7 +300,7 @@ function generateUniqueId(prefix = 'node', existingIds = new Set()) {
 }
 
 // 递归处理所有节点，确保每个节点都有唯一ID
-function ensureNodeIds(node, parentId = null, level = 0, existingIds = new Set()) {
+function ensureNodeIds(node: any, parentId: string | null = null, level: number = 0, existingIds: Set<string> = new Set<string>()) {
   if (!node) return node;
   
   // 确保节点有ID
@@ -330,7 +330,7 @@ function ensureNodeIds(node, parentId = null, level = 0, existingIds = new Set()
 }
 
 // 改进的OPML转换函数，更健壮地处理各种格式
-async function convertOpmlToMindElixir(opmlContent) {
+async function convertOpmlToMindElixir(opmlContent: string) {
   try {
     const parser = new xml2js.Parser({ explicitArray: false });
     const result = await parser.parseStringPromise(opmlContent);
@@ -354,7 +354,7 @@ async function convertOpmlToMindElixir(opmlContent) {
     };
     
     // 递归处理OPML节点
-    function processOutline(outline, parent) {
+    function processOutline(outline: any, parent: any) {
       if (!outline) return;
       
       const outlines = Array.isArray(outline) ? outline : [outline];
