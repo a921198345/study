@@ -30,14 +30,6 @@ const nextConfig = {
     
     return config;
   },
-  // 使用静态HTML导出
-  output: 'export',
-  // 禁用服务器组件以支持静态导出
-  experimental: {
-    appDir: true
-  },
-  // 避免动态API路由错误
-  distDir: 'out',
 };
 
 module.exports = nextConfig; 

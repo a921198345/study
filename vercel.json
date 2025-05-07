@@ -1,16 +1,4 @@
 {
-  "buildCommand": "npm install tailwindcss postcss-nested autoprefixer --save-dev && npm run build",
-  "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": "out",
-  "cleanUrls": true,
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "app/api/admin/upload-opml/route.ts": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  }
+  "cleanUrls": true
 } 
