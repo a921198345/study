@@ -1901,3 +1901,33 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
 ### 部署结果
 应用已成功部署，可通过以下URL访问：
 https://study-7ts78sy6h-cuiges-projects.vercel.app  
+
+## 2023-07-15 会话总结：修复思维导图数据加载404错误
+
+### 会话主要目的
+修复思维导图页面加载数据时出现的API 404错误，确保思维导图功能正常工作。
+
+### 完成的主要任务
+- 创建新的`app/api/active-mindmap/route.ts`API路由处理活跃思维导图请求
+- 实现从Supabase数据库查询活跃思维导图数据的功能
+- 添加默认思维导图数据作为备用选项，提高可靠性
+- 确保API路由返回正确格式的数据供前端使用
+
+### 关键决策和解决方案
+- 通过调试分析，发现前端调用了`/api/active-mindmap`但该路由不存在
+- 重用现有的`getActiveMindMapFromSupabase`函数实现数据库查询逻辑
+- 实现多层次的错误处理和回退策略，确保即使查询失败也能返回有用数据
+- 使用内部API调用从`/api/mindmap-data`获取具体的思维导图数据
+
+### 使用的技术栈
+- Next.js API Routes
+- Supabase数据库查询
+- TypeScript类型安全
+- JavaScript错误处理
+
+### 修改的文件
+- 创建`app/api/active-mindmap/route.ts`: 实现活跃思维导图API
+- 更新`README.md`: 添加会话总结
+
+### 改进效果
+修复后，思维导图页面可以正确加载数据，不再显示404错误。此修复提高了应用的可靠性和用户体验，确保思维导图功能在生产环境中正常工作。
