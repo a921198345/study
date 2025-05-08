@@ -1604,3 +1604,17 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
 - **技术栈**：TypeScript, Supabase, Next.js, Vercel
 - **修改文件**：
   - scripts/apply-db-schema-direct.ts
+
+### 2025-05-09（当前日期）
+- **会话主要目的**：修复另一个数据库脚本中的TypeScript空值检查错误
+- **完成的主要任务**：
+  - 修复scripts/apply-db-schema.ts中supabaseAdmin空值检查错误
+  - 使用与前一个脚本相同的模式进行修复
+  - 确保所有与数据库相关的脚本都有正确的类型检查
+- **关键决策和解决方案**：
+  - 统一数据库脚本的错误处理模式
+  - 创建明确的非空客户端引用
+  - 在SQL执行前验证客户端存在
+- **技术栈**：TypeScript, Supabase, SQL, Next.js
+- **修改文件**：
+  - scripts/apply-db-schema.ts
