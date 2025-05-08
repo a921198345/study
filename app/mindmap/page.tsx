@@ -213,7 +213,7 @@ interface MindmapContentProps {
   showSuccessMessage?: boolean;
 }
 
-export function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContentProps) {
+function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContentProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
