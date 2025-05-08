@@ -265,8 +265,8 @@ const convertToReactFlow = (
     
     // 计算当前节点位置
     let position;
-    const horizontalSpacing = 300; // 节点间的水平间距
-    const verticalSpacing = 100;   // 节点间的垂直间距
+    const horizontalSpacing = 400; // 增加节点间的水平间距 (从300改为400)
+    const verticalSpacing = 150;   // 增加节点间的垂直间距 (从100改为150)
     
     if (direction === 'horizontal') {
       position = {
@@ -341,13 +341,17 @@ const convertToReactFlow = (
             id: `e-${id}-${childId}`,
             source: id,
             target: childId,
-            type: 'smoothstep',
+            type: 'straight', // 从smoothstep改为straight类型，更直观可见
             animated: false,
-            style: { stroke: themeColors.edge, strokeWidth: 2.5 },
+            style: { 
+              stroke: themeColors.edge, 
+              strokeWidth: 4, // 增加线宽从2.5px到4px
+              opacity: 1 // 确保完全不透明
+            },
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              width: 20,
-              height: 20,
+              width: 25, // 增加箭头宽度从20到25
+              height: 25, // 增加箭头高度从20到25
               color: themeColors.edge,
             },
           };
@@ -383,7 +387,7 @@ const getThemeColors = (themeName: string = 'primary'): ThemeColors => {
         level3: '#2C3E50',
         default: '#7F8C8D',
         background: '#192734',
-        edge: '#dddddd'
+        edge: '#bbbbbb' // 提高深色模式下连接线的亮度
       };
     case 'green':
       return {
@@ -479,17 +483,22 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
         
         setNodes(updatedNodes);
         
-        // 更新连接线颜色 - 简化设置方式
+        // 更新连接线颜色
         const updatedEdges = edges.map((edge) => {
-          // 创建新的边对象，只设置颜色属性
           return {
             ...edge,
             style: {
               ...(edge.style || {}),
-              stroke: newColors.edge
+              stroke: newColors.edge,
+              strokeWidth: 4, // 确保切换主题时保持线宽
+              opacity: 1
             },
-            // 直接指定 markerEnd 为字符串类型
-            markerEnd: MarkerType.ArrowClosed,
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 25,
+              height: 25,
+              color: newColors.edge
+            }
           };
         });
         
@@ -586,7 +595,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
               nodeTypes={nodeTypes}
               fitView
               attributionPosition="bottom-right"
-              connectionLineType={ConnectionLineType.SmoothStep}
+              connectionLineType={ConnectionLineType.Straight} // 使用直线连接类型
               defaultViewport={{ x: 0, y: 0, zoom: 1 }}
               minZoom={0.1}
               maxZoom={4}
@@ -594,6 +603,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
               nodesDraggable={draggable}
               elementsSelectable={true}
               proOptions={{ hideAttribution: true }}
+              edgesFocusable={true} // 确保边可以被聚焦
             >
               <Background 
                 color={theme === 'dark' ? '#555' : '#aaa'} 

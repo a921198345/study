@@ -62,28 +62,59 @@ function validateAndTransform(data: any) {
       }
     }
     
-    // 确保完整性的递归函数
-    const ensureNodeStructure = (node: any) => {
+    // 生成唯一ID的辅助函数
+    const generateUniqueId = () => {
+      return `node-${Math.random().toString(36).substring(2, 11)}`;
+    };
+    
+    // 确保完整性的递归函数 - 增强版
+    const ensureNodeStructure = (node: any, parentId: string | null = null, level: number = 0) => {
       if (!node) return null;
       
       // 确保节点有ID
       if (!node.id) {
-        node.id = `node-${Math.random().toString(36).substr(2, 9)}`;
+        node.id = generateUniqueId();
+        console.log(`为节点添加ID: ${node.id}`);
       }
       
       // 确保节点有topic
-      if (!node.topic && (node.text || node.title)) {
-        node.topic = node.text || node.title;
+      if (!node.topic && (node.text || node.title || node.content || node.name)) {
+        node.topic = node.text || node.title || node.content || node.name || '未命名节点';
+        console.log(`为节点 ${node.id} 设置topic: ${node.topic.substring(0, 20)}...`);
+      } else if (!node.topic) {
+        node.topic = '节点 ' + node.id;
+        console.log(`节点缺少标题，设置默认标题: ${node.topic}`);
       }
       
-      // 确保expanded属性存在
+      // 确保expanded属性存在并默认为true
       if (node.expanded === undefined) {
         node.expanded = true;
       }
       
+      // 如果有direction属性，确保是有效值
+      if (node.direction && !['left', 'right'].includes(node.direction)) {
+        delete node.direction;
+      }
+      
+      // 确保样式对象存在
+      if (!node.style) {
+        node.style = {};
+      }
+      
       // 递归处理子节点
-      if (node.children && Array.isArray(node.children)) {
-        node.children = node.children.map((child: any) => ensureNodeStructure(child)).filter(Boolean);
+      if (node.children) {
+        if (!Array.isArray(node.children)) {
+          console.warn(`节点 ${node.id} 的children属性不是数组，将被转换为空数组`);
+          node.children = [];
+        } else {
+          node.children = node.children
+            .map((child: any, index: number) => 
+              ensureNodeStructure(child, node.id, level + 1)
+            )
+            .filter(Boolean); // 过滤掉null或undefined
+          
+          console.log(`处理节点 ${node.id} 的 ${node.children.length} 个子节点`);
+        }
       } else {
         node.children = [];
       }
@@ -98,11 +129,12 @@ function validateAndTransform(data: any) {
       const processedData = { 
         nodeData: ensureNodeStructure(data.nodeData)
       };
+      console.log(`数据处理完成，根节点ID: ${processedData.nodeData.id}`);
       return processedData;
     }
     
     // 处理直接包含id和topic的格式
-    if (data.id && data.topic) {
+    if (data.id && (data.topic || data.text || data.title)) {
       console.log('检测到id/topic直接格式，转换为nodeData格式');
       return {
         nodeData: ensureNodeStructure(data)
@@ -110,14 +142,26 @@ function validateAndTransform(data: any) {
     }
     
     // 处理仅包含topic的格式
-    if (data.topic) {
-      console.log('检测到仅包含topic的格式，添加id并转换为nodeData格式');
+    if (data.topic || data.text || data.title) {
+      console.log('检测到包含topic/text/title的格式，添加id并转换为nodeData格式');
       return {
         nodeData: ensureNodeStructure({
           ...data,
           id: data.id || 'root'
         })
       };
+    }
+    
+    // 处理数组格式
+    if (Array.isArray(data)) {
+      console.log('检测到数组格式，创建包含所有项的根节点');
+      const rootNode = {
+        id: 'root',
+        topic: '思维导图',
+        expanded: true,
+        children: data.map(item => ensureNodeStructure(item)).filter(Boolean)
+      };
+      return { nodeData: rootNode };
     }
     
     // 尝试识别其他可能的格式
@@ -138,6 +182,21 @@ function validateAndTransform(data: any) {
         children: data.nodes.map((node: any) => ensureNodeStructure(node)).filter(Boolean)
       };
       return { nodeData: rootNode };
+    }
+    
+    // 如果没有找到匹配的格式但是存在对象结构，尝试转换为节点
+    if (typeof data === 'object' && Object.keys(data).length > 0) {
+      console.log('尝试将未知格式的对象转换为节点');
+      // 查找可能的键值对作为节点结构
+      const possibleNode = {
+        id: data.id || generateUniqueId(),
+        topic: data.topic || data.text || data.title || data.name || data.label || '思维导图',
+        expanded: true
+      };
+      
+      return {
+        nodeData: ensureNodeStructure(possibleNode)
+      };
     }
     
     // 处理未知格式
