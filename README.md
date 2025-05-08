@@ -1697,3 +1697,34 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
   - app/api/mindmap-data/route.ts
   - package.json
   - package-lock.json
+
+## 会话总结 (2024-05-19)
+
+### 会话主要目的
+修复思维导图OPML上传功能，解决Vercel部署环境中的文件系统只读问题。
+
+### 完成的主要任务
+1. 修改`OpmlUploader.js`上传组件，使用新的API端点，直接将数据存储到Supabase
+2. 完善`app/api/mindmap-test/route.ts`测试API，提供全面的民法测试数据
+3. 增强`app/mindmap/page.tsx`页面，增加民法测试数据加载按钮
+4. 创建`scripts/create-mindmaps-table.sql`脚本，便于新环境快速设置数据库表
+
+### 关键决策和解决方案
+- **原因分析**：Vercel使用只读文件系统，无法直接写入文件，导致上传功能失败
+- **解决方法**：使用Supabase数据库存储替代文件系统存储
+- **备选方案**：提供测试数据API，即使数据库未配置也能正常使用思维导图功能
+- **用户体验**：添加直观的民法测试数据加载按钮，提高可用性
+
+### 使用的技术栈
+- Next.js API Routes
+- Supabase PostgreSQL数据库
+- React组件状态管理
+- SQL脚本和触发器
+
+### 修改的文件
+- `components/OpmlUploader.js`
+- `app/api/mindmap-test/route.ts`
+- `app/mindmap/page.tsx`
+- `scripts/create-mindmaps-table.sql`
+
+这次修复解决了思维导图上传功能在Vercel部署环境中的关键问题，使应用能够在无服务器环境中正常工作。通过使用Supabase数据库替代文件系统，并提供测试数据作为备选方案，确保思维导图功能在各种情况下都能正常运行，提高了应用的可靠性和用户体验。
