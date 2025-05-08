@@ -37,12 +37,12 @@ const CustomNode = ({ data, id, selected }: NodeProps) => {
   // 根据层级设置不同的颜色
   const getColor = () => {
     const colors = [
-      { bg: '#f8fafc', border: '#475569' }, // 根节点 - 浅灰色
-      { bg: '#eff6ff', border: '#3b82f6' }, // 一级 - 蓝色
-      { bg: '#f0fdf4', border: '#22c55e' }, // 二级 - 绿色
-      { bg: '#fff7ed', border: '#f97316' }, // 三级 - 橙色
-      { bg: '#fef2f2', border: '#ef4444' }, // 四级 - 红色
-      { bg: '#faf5ff', border: '#a855f7' }, // 五级 - 紫色
+      { bg: '#f8fafc', border: '#334155', text: '#0f172a' }, // 根节点 - 浅灰色背景，深色文字
+      { bg: '#eff6ff', border: '#2563eb', text: '#1e3a8a' }, // 一级 - 蓝色
+      { bg: '#f0fdf4', border: '#16a34a', text: '#166534' }, // 二级 - 绿色
+      { bg: '#fff7ed', border: '#ea580c', text: '#9a3412' }, // 三级 - 橙色
+      { bg: '#fef2f2', border: '#dc2626', text: '#991b1b' }, // 四级 - 红色
+      { bg: '#faf5ff', border: '#9333ea', text: '#581c87' }, // 五级 - 紫色
     ];
     return colors[level % colors.length];
   };
@@ -55,14 +55,15 @@ const CustomNode = ({ data, id, selected }: NodeProps) => {
       style={{
         background: color.bg,
         borderColor: color.border,
-        borderWidth: level === 0 ? '2px' : '1px',
+        borderWidth: level === 0 ? '3px' : '2px', // 增加边框宽度使其更明显
         borderStyle: 'solid',
         borderRadius: '6px',
         padding: '10px 15px',
         maxWidth: `${maxWidth}px`,
         fontSize: `${fontSize}px`,
         fontWeight: level <= 1 ? 'bold' : 'normal',
-        boxShadow: selected ? '0 0 0 2px #3b82f6' : 'none',
+        color: color.text, // 使用更深的文字颜色
+        boxShadow: selected ? `0 0 0 2px ${color.border}` : '0 1px 3px rgba(0,0,0,0.1)',
         overflow: 'hidden',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
@@ -342,11 +343,11 @@ const convertToReactFlow = (
             target: childId,
             type: 'smoothstep',
             animated: false,
-            style: { stroke: themeColors.edge, strokeWidth: 1.5 },
+            style: { stroke: themeColors.edge, strokeWidth: 2.5 },
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              width: 15,
-              height: 15,
+              width: 20,
+              height: 20,
               color: themeColors.edge,
             },
           };
@@ -382,7 +383,7 @@ const getThemeColors = (themeName: string = 'primary'): ThemeColors => {
         level3: '#2C3E50',
         default: '#7F8C8D',
         background: '#192734',
-        edge: '#aaaaaa'
+        edge: '#dddddd'
       };
     case 'green':
       return {
@@ -392,28 +393,27 @@ const getThemeColors = (themeName: string = 'primary'): ThemeColors => {
         level3: '#1ABC9C',
         default: '#29B765',
         background: '#EAFAF1',
-        edge: '#16A085'
+        edge: '#0F6D5B'
       };
     case 'purple':
       return {
         root: '#8E44AD',
         level1: '#9B59B6',
-        level2: '#884EA0',
-        level3: '#A569BD',
-        default: '#BB8FCE',
+        level2: '#8E44AD',
+        level3: '#6C3483',
+        default: '#9B59B6',
         background: '#F5EEF8',
-        edge: '#8E44AD'
+        edge: '#5B2C6F'
       };
-    case 'primary':
     default:
       return {
-        root: '#FF9500',
-        level1: '#9B59B6',
-        level2: '#2ECC71',
-        level3: '#3498DB',
-        default: '#F39C12',
-        background: '#F7FAFC',
-        edge: '#3498DB'
+        root: '#3498DB',
+        level1: '#2980B9',
+        level2: '#1ABC9C',
+        level3: '#16A085',
+        default: '#3498DB',
+        background: '#ECF0F1',
+        edge: '#2C3E50'
       };
   }
 };

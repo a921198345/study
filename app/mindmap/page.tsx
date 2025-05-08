@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import axios, { AxiosError } from 'axios';
@@ -62,17 +62,50 @@ function validateAndTransform(data: any) {
       }
     }
     
+    // 确保完整性的递归函数
+    const ensureNodeStructure = (node: any) => {
+      if (!node) return null;
+      
+      // 确保节点有ID
+      if (!node.id) {
+        node.id = `node-${Math.random().toString(36).substr(2, 9)}`;
+      }
+      
+      // 确保节点有topic
+      if (!node.topic && (node.text || node.title)) {
+        node.topic = node.text || node.title;
+      }
+      
+      // 确保expanded属性存在
+      if (node.expanded === undefined) {
+        node.expanded = true;
+      }
+      
+      // 递归处理子节点
+      if (node.children && Array.isArray(node.children)) {
+        node.children = node.children.map((child: any) => ensureNodeStructure(child)).filter(Boolean);
+      } else {
+        node.children = [];
+      }
+      
+      return node;
+    };
+    
     // 处理nodeData格式
     if (data.nodeData && typeof data.nodeData === 'object') {
       console.log('检测到nodeData格式');
-      return data;
+      // 递归处理确保所有节点结构完整
+      const processedData = { 
+        nodeData: ensureNodeStructure(data.nodeData)
+      };
+      return processedData;
     }
     
     // 处理直接包含id和topic的格式
     if (data.id && data.topic) {
       console.log('检测到id/topic直接格式，转换为nodeData格式');
       return {
-        nodeData: data
+        nodeData: ensureNodeStructure(data)
       };
     }
     
@@ -80,11 +113,31 @@ function validateAndTransform(data: any) {
     if (data.topic) {
       console.log('检测到仅包含topic的格式，添加id并转换为nodeData格式');
       return {
-        nodeData: {
+        nodeData: ensureNodeStructure({
           ...data,
           id: data.id || 'root'
-        }
+        })
       };
+    }
+    
+    // 尝试识别其他可能的格式
+    if (data.root && typeof data.root === 'object') {
+      console.log('检测到root对象格式，转换为nodeData格式');
+      return {
+        nodeData: ensureNodeStructure(data.root)
+      };
+    }
+    
+    if (data.nodes && Array.isArray(data.nodes) && data.nodes.length > 0) {
+      console.log('检测到nodes数组格式，转换为nodeData格式');
+      // 创建根节点，并将所有节点作为子节点
+      const rootNode = {
+        id: 'root',
+        topic: '思维导图',
+        expanded: true,
+        children: data.nodes.map((node: any) => ensureNodeStructure(node)).filter(Boolean)
+      };
+      return { nodeData: rootNode };
     }
     
     // 处理未知格式
@@ -110,7 +163,7 @@ function MindmapContent() {
   const [useTestData, setUseTestData] = useState(false);
   
   // 获取测试数据
-  const fetchTestData = async () => {
+  const fetchTestData = useCallback(async () => {
     try {
       console.log('获取测试思维导图数据');
       setLoading(true);
@@ -131,10 +184,31 @@ function MindmapContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+  
+  // 获取思维导图数据
+  const fetchMindmapData = useCallback(async (id: string) => {
+    try {
+      console.log(`正在获取思维导图数据, ID: ${id}`);
+      const response = await axios.get(`/api/mindmap-data?id=${id}`);
+      
+      if (response.data) {
+        console.log('思维导图数据获取成功');
+        setMapData(response.data);
+      } else {
+        throw new Error('获取思维导图数据失败');
+      }
+    } catch (err: unknown) {
+      console.error('获取思维导图数据时出错:', err);
+      const errorMessage = err instanceof Error ? err.message : '未知错误';
+      throw new Error(`获取思维导图数据失败: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
   
   // 获取活跃思维导图
-  const fetchActiveMindmap = async () => {
+  const fetchActiveMindmap = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -207,28 +281,7 @@ function MindmapContent() {
       setError('获取思维导图数据失败，请刷新页面重试');
       setLoading(false);
     }
-  };
-  
-  // 获取思维导图数据
-  const fetchMindmapData = async (id: string) => {
-    try {
-      console.log(`正在获取思维导图数据, ID: ${id}`);
-      const response = await axios.get(`/api/mindmap-data?id=${id}`);
-      
-      if (response.data) {
-        console.log('思维导图数据获取成功');
-        setMapData(response.data);
-      } else {
-        throw new Error('获取思维导图数据失败');
-      }
-    } catch (err: unknown) {
-      console.error('获取思维导图数据时出错:', err);
-      const errorMessage = err instanceof Error ? err.message : '未知错误';
-      throw new Error(`获取思维导图数据失败: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [searchParams, fetchTestData, fetchMindmapData]);
   
   // 切换布局方向
   const toggleDirection = () => {
@@ -279,7 +332,7 @@ function MindmapContent() {
       setDarkMode(true);
       document.documentElement.classList.add('dark-theme');
     }
-  }, [searchParams]);
+  }, [searchParams, fetchActiveMindmap]);
   
   return (
     <div className={`flex flex-col h-screen w-full ${darkMode ? 'dark-theme' : ''}`}>
