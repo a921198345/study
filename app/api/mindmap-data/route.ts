@@ -366,7 +366,19 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
     }
     
     // 创建根节点
-    const rootNode = {
+    const rootNode: {
+      id: string;
+      topic: string;
+      expanded: boolean;
+      children: any[];
+      meta?: {
+        totalNodes: number;
+        processedNodes: number;
+        skippedNodes: number;
+        maxDepthReached: boolean;
+        maxDepth: number;
+      };
+    } = {
       id: 'root',
       topic: rootTopic,
       expanded: true,
@@ -498,6 +510,14 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
         processedNodes: processedNodes,
         skippedNodes: skippedNodes,
         maxDepthReached: maxDepthReached
+      }
+    } as { 
+      nodeData: any; 
+      meta: { 
+        totalNodes: number; 
+        processedNodes: number; 
+        skippedNodes: number; 
+        maxDepthReached: boolean; 
       }
     };
     
