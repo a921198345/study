@@ -341,12 +341,22 @@ function ensureNodeIds(node: any, parentId: string | null = null, level: number 
 // 改进的OPML转换函数，更健壮地处理各种格式
 async function convertOpmlToMindElixir(opmlContent: string) {
   try {
-    const parser = new xml2js.Parser({ explicitArray: false });
+    // 使用更精确的XML解析配置
+    const parser = new xml2js.Parser({ 
+      explicitArray: false,
+      explicitChildren: false,
+      mergeAttrs: true,
+      attrkey: '$',
+      trim: true,
+      normalize: true
+    });
     const result = await parser.parseStringPromise(opmlContent);
+    
+    console.log('OPML解析结果:', JSON.stringify(result).substring(0, 500) + '...');
     
     if (!result || !result.opml || !result.opml.body || !result.opml.body.outline) {
       console.error('OPML结构无效');
-      return { nodeData: { root: { topic: '无效的OPML数据', children: [] } } };
+      return { nodeData: { id: 'root', topic: '无效的OPML数据', children: [] } };
     }
     
     // 提取标题，优先从OPML头部获取
@@ -359,54 +369,66 @@ async function convertOpmlToMindElixir(opmlContent: string) {
     const rootNode = {
       id: 'root',
       topic: rootTopic,
+      expanded: true,
       children: []
     };
+    
+    // 计数已处理的节点
+    let nodesCount = 1; // 根节点算一个
     
     // 递归处理OPML节点
     function processOutline(outline: any, parent: any) {
       if (!outline) return;
       
+      // 确保outline是数组
       const outlines = Array.isArray(outline) ? outline : [outline];
       
       outlines.forEach((item: any) => {
         // 提取节点文本，按优先级处理多种可能的属性
         let nodeTopic = '未命名节点';
         
-        // 处理MuBu思维导图特殊格式
-        if (item._mubu_text) {
+        // 处理各种可能的文本属性格式
+        if (item.$ && item.$.text) {
+          nodeTopic = item.$.text;
+        } else if (item.text) {
+          nodeTopic = item.text;
+        } else if (item._mubu_text) {
           try {
             // 解码URL编码并移除HTML标签
             nodeTopic = decodeURIComponent(item._mubu_text).replace(/<[^>]*>/g, '');
           } catch (e) {
             nodeTopic = item._mubu_text;
           }
-        } 
-        // 处理常规属性
-        else if (item.text) {
-          nodeTopic = item.text;
-        } else if (item.$ && item.$.text) {
-          nodeTopic = item.$.text;
-        } else if (item._) {
-          nodeTopic = item._;
+        } else if (item.$ && item.$._text) {
+          nodeTopic = item.$._text;
         } else if (item.$ && item.$.title) {
           nodeTopic = item.$.title;
         } else if (item.title) {
           nodeTopic = item.title;
+        } else if (item._) {
+          nodeTopic = item._;
         }
         
-        // 创建节点
+        // 创建节点并添加唯一ID
         const node = {
           id: `node-${uuidv4().substring(0, 8)}`,
-          topic: nodeTopic.trim(),
+          topic: nodeTopic.trim() || '未命名节点',
+          expanded: true,
           children: []
         };
+        
+        nodesCount++; // 增加节点计数
         
         // 添加到父节点
         parent.children.push(node);
         
-        // 处理子节点
+        // 处理子节点 - 处理更多可能的子节点字段
         if (item.outline) {
           processOutline(item.outline, node);
+        } else if (item.children) {
+          processOutline(item.children, node);
+        } else if (item.$ && item.$.children) {
+          processOutline(item.$.children, node);
         }
       });
     }
@@ -414,13 +436,29 @@ async function convertOpmlToMindElixir(opmlContent: string) {
     // 开始处理
     processOutline(result.opml.body.outline, rootNode);
     
-    // 确保所有节点都有ID并返回标准格式
+    console.log(`OPML解析完成，共处理 ${nodesCount} 个节点`);
+    
+    // 确保所有节点都有ID
     const processedRoot = ensureNodeIds(rootNode);
+    
+    // 输出前几个节点用于调试
+    console.log('处理后的根节点:', JSON.stringify(processedRoot).substring(0, 500) + '...');
+    if (processedRoot.children && processedRoot.children.length > 0) {
+      console.log(`第一级节点数量: ${processedRoot.children.length}`);
+      console.log('第一个子节点:', JSON.stringify(processedRoot.children[0]).substring(0, 300) + '...');
+    }
+    
     return { nodeData: processedRoot };
     
   } catch (error: unknown) {
     console.error('转换OPML出错:', error);
-    return { nodeData: { root: { topic: '转换OPML时发生错误', children: [] } } };
+    if (error instanceof Error) {
+      console.error('错误详情:', error.message);
+      if (error.stack) {
+        console.error('错误堆栈:', error.stack);
+      }
+    }
+    return { nodeData: { id: 'root', topic: '转换OPML时发生错误', children: [] } };
   }
 }
 

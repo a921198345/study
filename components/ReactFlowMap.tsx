@@ -15,8 +15,12 @@ import ReactFlow, {
   Edge,
   NodeProps,
   Position,
+  useReactFlow,
+  Handle,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+// 导入dagre布局库
+import dagre from 'dagre';
 
 // 默认思维导图数据
 const DEFAULT_MIND_DATA = {
@@ -28,7 +32,7 @@ const DEFAULT_MIND_DATA = {
   }
 };
 
-// 自定义节点组件
+// 自定义节点组件，增加连接点的可见性
 const CustomNode = ({ data, id, selected }: NodeProps) => {
   const level = data?.level || 0;
   const maxWidth = Math.max(300 - level * 30, 150); // 根据层级减小节点宽度
@@ -69,6 +73,17 @@ const CustomNode = ({ data, id, selected }: NodeProps) => {
         wordBreak: 'break-word',
       }}
     >
+      {/* 增加明显的连接点 */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ background: color.border, width: '8px', height: '8px' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ background: color.border, width: '8px', height: '8px' }}
+      />
       {data.label}
     </div>
   );
@@ -185,7 +200,63 @@ const isValidData = (data: any): boolean => {
   return false;
 };
 
-// 将Mind Elixir格式转换为ReactFlow格式
+// 使用dagre实现自动布局
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction: 'horizontal' | 'vertical'): { nodes: Node[], edges: Edge[] } => {
+  if (nodes.length === 0) return { nodes, edges };
+
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+  // 设置布局方向和节点间距
+  const isHorizontal = direction === 'horizontal';
+  dagreGraph.setGraph({
+    rankdir: isHorizontal ? 'LR' : 'TB',
+    nodesep: 80,  // 节点水平间距
+    ranksep: 100, // 节点垂直间距
+    edgesep: 30,  // 边间距
+    marginx: 50,  // 图边缘水平边距
+    marginy: 50   // 图边缘垂直边距
+  });
+
+  // 节点宽高信息，为dagre计算布局提供必要信息
+  nodes.forEach((node) => {
+    // 根据节点层级调整节点大小
+    const level = node.data?.level || 0;
+    const nodeWidth = Math.max(300 - level * 20, 150); // 根据层级减小节点宽度
+    const nodeHeight = 60; // 固定高度或根据内容动态计算
+
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  // 添加边信息
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  // 执行dagre布局算法
+  dagre.layout(dagreGraph);
+
+  // 使用dagre计算的位置更新节点
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    
+    // 更新源和目标连接点位置
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - nodeWithPosition.width / 2,
+        y: nodeWithPosition.y - nodeWithPosition.height / 2,
+      },
+      // 更新连接点位置，适应布局方向
+      sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+      targetPosition: isHorizontal ? Position.Left : Position.Top,
+    };
+  });
+
+  return { nodes: newNodes, edges };
+};
+
+// 将Mind Elixir格式转换为ReactFlow格式并应用布局
 const convertToReactFlow = (
   data: any, 
   themeColors: ThemeColors, 
@@ -222,26 +293,8 @@ const convertToReactFlow = (
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   
-  // 计算最大层级深度以调整布局
-  const calculateMaxDepth = (node: any, currentDepth: number = 0): number => {
-    if (!node || !node.children || !Array.isArray(node.children) || node.children.length === 0) {
-      return currentDepth;
-    }
-    
-    let maxChildDepth = currentDepth;
-    for (const child of node.children) {
-      const childDepth = calculateMaxDepth(child, currentDepth + 1);
-      maxChildDepth = Math.max(maxChildDepth, childDepth);
-    }
-    
-    return maxChildDepth;
-  };
-  
-  const maxDepth = calculateMaxDepth(rootNode);
-  console.log(`ReactFlowMap: 思维导图最大深度: ${maxDepth}`);
-  
   // 递归处理节点
-  const processNode = (node: any, parentId: string | null = null, level: number = 0, index: number = 0, siblingCount: number = 1, x: number = 0, y: number = 0) => {
+  const processNode = (node: any, parentId: string | null = null, level: number = 0) => {
     if (!node) {
       console.warn('ReactFlowMap: 处理空节点');
       return null;
@@ -263,38 +316,18 @@ const convertToReactFlow = (
                  level === 3 ? themeColors.level3 : themeColors.default
     };
     
-    // 计算当前节点位置
-    let position;
-    const horizontalSpacing = 400; // 增加节点间的水平间距 (从300改为400)
-    const verticalSpacing = 150;   // 增加节点间的垂直间距 (从100改为150)
-    
-    if (direction === 'horizontal') {
-      position = {
-        x: level * horizontalSpacing,
-        y: siblingCount > 1 
-          ? index * verticalSpacing - (siblingCount - 1) * verticalSpacing / 2 + y
-          : y
-      };
-    } else {
-      position = {
-        x: siblingCount > 1 
-          ? index * horizontalSpacing - (siblingCount - 1) * horizontalSpacing / 2 + x
-          : x,
-        y: level * verticalSpacing,
-      };
-    }
-    
-    // 创建ReactFlow节点
+    // 创建ReactFlow节点(不设置初始位置，让dagre自动计算)
     const rfNode: Node = {
       id,
-      position,
+      // 默认位置，后续由dagre重新计算
+      position: { x: 0, y: 0 },
       data: { 
         label, 
         level,
         style: { ...nodeStyle, ...(node.style || {}) }
       },
       type: 'custom',
-      // 设置源和目标连接点位置
+      // 默认连接点方向，后续根据布局方向调整
       sourcePosition: direction === 'horizontal' ? Position.Right : Position.Bottom,
       targetPosition: direction === 'horizontal' ? Position.Left : Position.Top,
     };
@@ -303,37 +336,9 @@ const convertToReactFlow = (
     
     // 处理子节点
     if (node.children && Array.isArray(node.children) && node.children.length > 0) {
-      const childCount = node.children.length;
-      
-      // 为子节点留出足够空间
-      const childSpacing = direction === 'horizontal' 
-        ? verticalSpacing
-        : horizontalSpacing;
-      
-      // 子节点布局位置
-      let childY = position.y;
-      let childX = position.x;
-      
-      // 针对拥有多个子节点的节点，计算它们的起始位置
-      if (childCount > 1) {
-        if (direction === 'horizontal') {
-          childY = position.y - (childCount - 1) * childSpacing / 2;
-        } else {
-          childX = position.x - (childCount - 1) * childSpacing / 2;
-        }
-      }
-      
-      node.children.forEach((child: any, idx: number) => {
+      node.children.forEach((child: any) => {
         // 递归处理子节点
-        const childId = processNode(
-          child, 
-          id, 
-          level + 1, 
-          idx, 
-          childCount, 
-          direction === 'horizontal' ? position.x + horizontalSpacing : childX + idx * childSpacing,
-          direction === 'horizontal' ? childY + idx * childSpacing : position.y + verticalSpacing
-        );
+        const childId = processNode(child, id, level + 1);
         
         if (childId) {
           // 创建连接边
@@ -341,17 +346,17 @@ const convertToReactFlow = (
             id: `e-${id}-${childId}`,
             source: id,
             target: childId,
-            type: 'straight', // 从smoothstep改为straight类型，更直观可见
+            type: 'smoothstep', // 使用平滑曲线连接，更美观
             animated: false,
             style: { 
               stroke: themeColors.edge, 
-              strokeWidth: 4, // 增加线宽从2.5px到4px
-              opacity: 1 // 确保完全不透明
+              strokeWidth: 2.5, // 适当的线宽
+              opacity: 1  // 完全不透明
             },
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              width: 25, // 增加箭头宽度从20到25
-              height: 25, // 增加箭头高度从20到25
+              width: 20,
+              height: 20,
               color: themeColors.edge,
             },
           };
@@ -367,13 +372,18 @@ const convertToReactFlow = (
   // 从根节点开始处理
   try {
     console.log('ReactFlowMap: 开始从根节点处理');
-    processNode(rootNode, null, 0, 0, 1, 0, 0);
-    console.log(`ReactFlowMap: 处理完成，生成 ${nodes.length} 个节点和 ${edges.length} 条边`);
+    processNode(rootNode, null, 0);
+    console.log(`ReactFlowMap: 初步处理完成，生成 ${nodes.length} 个节点和 ${edges.length} 条边`);
+    
+    // 应用dagre自动布局
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, direction);
+    console.log(`ReactFlowMap: 布局完成，最终生成 ${layoutedNodes.length} 个节点和 ${layoutedEdges.length} 条边`);
+    
+    return { nodes: layoutedNodes, edges: layoutedEdges };
   } catch (error) {
     console.error('ReactFlowMap: 处理节点时出错:', error);
+    return { nodes, edges };
   }
-  
-  return { nodes, edges };
 };
 
 // 根据主题获取颜色
@@ -490,13 +500,13 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
             style: {
               ...(edge.style || {}),
               stroke: newColors.edge,
-              strokeWidth: 4, // 确保切换主题时保持线宽
+              strokeWidth: 2.5,
               opacity: 1
             },
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              width: 25,
-              height: 25,
+              width: 20,
+              height: 20,
               color: newColors.edge
             }
           };
@@ -507,7 +517,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
     }
   }, [theme, currentTheme, nodes, edges, setNodes, setEdges]);
   
-  // 监听方向变化
+  // 监听方向变化并重新布局
   useEffect(() => {
     if (direction !== currentDirection && isClient) {
       console.log(`ReactFlowMap: 方向变更 ${currentDirection} -> ${direction}`);
@@ -557,6 +567,12 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
     }
   }, [data, themeColors, currentDirection, setNodes, setEdges]);
   
+  // 处理连接线创建事件
+  const onConnect = useCallback((params: any) => {
+    console.log('ReactFlowMap: 创建连接线:', params);
+    // 如果需要允许用户创建自定义连接，可以在这里处理
+  }, []);
+  
   if (!isClient) {
     return null;
   }
@@ -583,7 +599,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
             尝试重新加载
           </button>
         </div>
-      ) : (
+      ) :
         <div ref={reactFlowWrapper} style={{ width: '100%', height: '100%' }}>
           <ReactFlowProvider>
             <ReactFlow
@@ -592,10 +608,11 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeClick={onNodeClick}
+              onConnect={onConnect}
               nodeTypes={nodeTypes}
               fitView
               attributionPosition="bottom-right"
-              connectionLineType={ConnectionLineType.Straight} // 使用直线连接类型
+              connectionLineType={ConnectionLineType.SmoothStep} // 使用平滑曲线连接类型
               defaultViewport={{ x: 0, y: 0, zoom: 1 }}
               minZoom={0.1}
               maxZoom={4}
@@ -603,7 +620,12 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
               nodesDraggable={draggable}
               elementsSelectable={true}
               proOptions={{ hideAttribution: true }}
-              edgesFocusable={true} // 确保边可以被聚焦
+              snapGrid={[20, 20]}
+              snapToGrid={true}
+              fitViewOptions={{
+                padding: 0.2,
+                includeHiddenNodes: false,
+              }}
             >
               <Background 
                 color={theme === 'dark' ? '#555' : '#aaa'} 
@@ -614,33 +636,18 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
                 showInteractive={true} 
                 className="shadow-lg bg-white/90 dark:bg-gray-800/90"
               />
-              <Panel position="top-right">
-                <div className="flex gap-2">
-                  <button
-                    onClick={refreshLayout}
-                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded shadow-md transition-colors"
-                  >
-                    重新布局
-                  </button>
-                  <button
-                    onClick={() => {
-                      setNodes((nds) =>
-                        nds.map((node) => ({
-                          ...node,
-                          position: { ...node.position }
-                        }))
-                      );
-                    }}
-                    className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded shadow-md transition-colors"
-                  >
-                    刷新
-                  </button>
-                </div>
+              <Panel position="top-right" className="bg-white/80 dark:bg-gray-800/80 p-2 rounded shadow">
+                <button
+                  onClick={refreshLayout}
+                  className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                >
+                  重新布局
+                </button>
               </Panel>
             </ReactFlow>
           </ReactFlowProvider>
         </div>
-      )}
+      }
     </div>
   );
 };
