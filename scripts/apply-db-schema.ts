@@ -13,12 +13,20 @@ async function applyDbSchema() {
     console.log('开始应用数据库架构...');
     console.log(`当前Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
     
+    // 确保supabaseAdmin不为空
+    if (!supabaseAdmin) {
+      throw new Error('Supabase 管理员客户端未初始化，无法继续操作');
+    }
+    
+    // 创建非空的admin客户端变量
+    const admin = supabaseAdmin;
+    
     // 读取SQL文件
     const sqlFilePath = path.join(process.cwd(), 'scripts', 'create-db-schema.sql');
     const sqlContent = fs.readFileSync(sqlFilePath, 'utf-8');
     
     // 执行SQL脚本
-    const { error } = await supabaseAdmin.rpc('pgmoon.query', { query: sqlContent });
+    const { error } = await admin.rpc('pgmoon.query', { query: sqlContent });
     
     if (error) {
       console.error('执行SQL脚本时出错:', error);
@@ -31,7 +39,7 @@ async function applyDbSchema() {
         const stmt = statements[i].trim() + ';';
         console.log(`执行SQL语句 ${i+1}/${statements.length}`);
         
-        const { error: stmtError } = await supabaseAdmin.rpc('pgmoon.query', { query: stmt });
+        const { error: stmtError } = await admin.rpc('pgmoon.query', { query: stmt });
         if (stmtError) {
           console.error(`SQL语句 ${i+1} 执行错误:`, stmtError);
         }
