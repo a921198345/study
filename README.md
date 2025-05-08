@@ -1137,7 +1137,7 @@ CREATE TABLE mindmaps (
 - 正则表达式数据清理
 - JSON验证和异常处理
 
-### 修改了哪些文件
+### 修改的文件
 - `/app/api/mindmap-data/route.ts`：增强了OPML到Mind-Elixir格式的转换和验证逻辑
 
 这次优化大幅提高了思维导图数据处理的健壮性，通过全面处理特殊字符、类型验证和多层级验证，确保了即使源数据格式存在问题，系统也能正确处理并返回有效的JSON数据。这解决了之前在Mind-Elixir库中出现的"SyntaxError: Expected ',' or '}' after property value in JSON"等解析错误，使思维导图功能更加稳定可靠。
