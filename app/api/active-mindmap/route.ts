@@ -79,31 +79,65 @@ export async function GET() {
       });
     }
     
-    // 获取思维导图数据
-    console.log(`获取ID=${activeFile.id}的思维导图数据`);
-    const apiUrl = `/api/mindmap-data?id=${activeFile.id}`;
+    // 直接从数据库记录中获取JSON内容
+    console.log(`使用ID=${activeFile.id}的思维导图JSON数据`);
     
-    // 获取绝对URL
-    const host = process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL || 'localhost:3000';
-    const protocol = host.includes('localhost') ? 'http' : 'https';
-    const fullApiUrl = `${protocol}://${host}${apiUrl}`;
-    
-    console.log(`请求思维导图数据: ${fullApiUrl}`);
-    const response = await fetch(fullApiUrl);
-    
-    if (!response.ok) {
-      throw new Error(`思维导图数据API返回错误: ${response.status}`);
+    if (activeFile.json_content) {
+      console.log('找到JSON内容，直接返回');
+      
+      // 检查json_content是否已经是对象，如果是字符串则解析
+      let nodeData = typeof activeFile.json_content === 'string' 
+        ? JSON.parse(activeFile.json_content) 
+        : activeFile.json_content;
+      
+      // 确保数据符合预期的格式（包含nodeData字段）
+      if (!nodeData.nodeData && (nodeData.id || nodeData.topic)) {
+        nodeData = { nodeData: nodeData };
+      }
+      
+      return NextResponse.json(nodeData);
     }
     
-    // 获取JSON数据
-    const data = await response.json();
+    // 如果没有JSON内容，返回默认数据
+    console.log('未找到JSON内容，返回默认数据');
+    return NextResponse.json({
+      nodeData: {
+        id: 'root',
+        topic: '未能加载思维导图数据',
+        expanded: true,
+        children: [
+          {
+            id: 'error1',
+            topic: `思维导图 ${activeFile.file_name} 没有可用的JSON数据`,
+            expanded: true,
+          },
+          {
+            id: 'error2',
+            topic: '请前往管理页面重新上传',
+            expanded: true,
+          }
+        ]
+      }
+    });
     
-    // 返回数据
-    return NextResponse.json(data);
   } catch (error: unknown) {
     console.error('获取活跃思维导图数据失败:', error);
     return NextResponse.json(
-      { error: `获取活跃思维导图数据失败: ${(error as Error).message}` },
+      { 
+        error: `获取活跃思维导图数据失败: ${(error as Error).message}`,
+        nodeData: {
+          id: 'error-root',
+          topic: '加载错误',
+          expanded: true,
+          children: [
+            {
+              id: 'error-msg',
+              topic: `错误信息: ${(error as Error).message}`,
+              expanded: true,
+            }
+          ]
+        }
+      },
       { status: 500 }
     );
   }
