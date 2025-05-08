@@ -1618,3 +1618,17 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
 - **技术栈**：TypeScript, Supabase, SQL, Next.js
 - **修改文件**：
   - scripts/apply-db-schema.ts
+
+### 2025-05-10（当前日期）
+- **会话主要目的**：修复知识库上传脚本中的TypeScript空值检查错误
+- **完成的主要任务**：
+  - 修复scripts/upload-knowledge.ts中supabaseAdmin空值检查错误
+  - 应用一致的错误处理模式确保类型安全
+  - 替换所有supabaseAdmin引用为类型安全的变量
+- **关键决策和解决方案**：
+  - 遵循项目中已建立的TypeScript错误处理模式
+  - 添加明确的非空检查，防止空引用错误
+  - 使用const admin变量存储非空引用，简化后续代码
+- **技术栈**：TypeScript, Supabase, OpenAI API, Next.js
+- **修改文件**：
+  - scripts/upload-knowledge.ts
