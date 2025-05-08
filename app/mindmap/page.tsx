@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import axios, { AxiosError } from 'axios';
@@ -96,8 +96,8 @@ function validateAndTransform(data: any) {
   }
 }
 
-// 思维导图页面组件
-export default function MindmapPage() {
+// 思维导图页面主内容组件
+function MindmapContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -270,93 +270,105 @@ export default function MindmapPage() {
     }
   };
   
-  // 初始加载
+  // 在组件挂载时加载思维导图数据
   useEffect(() => {
     fetchActiveMindmap();
-  }, []);
+    
+    // 从URL获取深色模式设置
+    if (searchParams.get('dark') === 'true') {
+      setDarkMode(true);
+      document.documentElement.classList.add('dark-theme');
+    }
+  }, [searchParams]);
   
   return (
-    <div className={`mindmap-container ${darkMode ? 'dark-theme' : ''}`}>
-      {/* 控制栏 */}
-      <div className="control-panel">
-        <button
-          onClick={toggleDirection}
-          className="control-button"
-          title={direction === 'horizontal' ? '切换到垂直布局' : '切换到水平布局'}
-        >
-          <FiLayout />
-          <span className="button-text">{direction === 'horizontal' ? '垂直布局' : '水平布局'}</span>
-        </button>
-        
-        <button
-          onClick={toggleTheme}
-          className="control-button"
-          title={darkMode ? '切换到亮色主题' : '切换到暗色主题'}
-        >
-          {darkMode ? <FiSun /> : <FiMoon />}
-          <span className="button-text">{darkMode ? '亮色主题' : '暗色主题'}</span>
-        </button>
-        
-        <button
-          onClick={toggleDataSource}
-          className="control-button"
-          title={useTestData ? '切换到真实数据' : '切换到测试数据'}
-        >
-          <FiRefreshCw />
-          <span className="button-text">{useTestData ? '真实数据' : '测试数据'}</span>
-        </button>
-        
-        <button
-          onClick={refreshMindmap}
-          className="control-button"
-          title="刷新思维导图"
-        >
-          <FiRefreshCw />
-          <span className="button-text">刷新</span>
-        </button>
+    <div className={`flex flex-col h-screen w-full ${darkMode ? 'dark-theme' : ''}`}>
+      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 shadow-sm">
+        <h1 className="text-xl font-bold text-gray-800 dark:text-white">思维导图</h1>
+        <div className="flex space-x-2">
+          {useTestData && (
+            <div className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+              使用测试数据
+            </div>
+          )}
+          <button
+            onClick={refreshMindmap}
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="刷新思维导图"
+          >
+            <FiRefreshCw className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+          <button
+            onClick={toggleDirection}
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+            title={`切换到${direction === 'horizontal' ? '垂直' : '水平'}布局`}
+          >
+            <FiLayout className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+            title={`切换到${darkMode ? '浅色' : '深色'}主题`}
+          >
+            {darkMode ? (
+              <FiSun className="w-5 h-5 text-gray-300" />
+            ) : (
+              <FiMoon className="w-5 h-5 text-gray-600" />
+            )}
+          </button>
+          <button
+            onClick={toggleDataSource}
+            className={`px-3 py-1 rounded text-sm ${
+              useTestData 
+                ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            {useTestData ? '切换到真实数据' : '切换到测试数据'}
+          </button>
+        </div>
       </div>
       
-      {/* 主要内容区 */}
-      <div className="mindmap-content">
+      <div className="flex-1 relative">
         {loading ? (
-          <div className="loading-container">
-            <div className="loading-spinner"></div>
-            <p>思维导图加载中...</p>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         ) : error ? (
-          <div className="error-container">
-            <p className="error-message">{error}</p>
-            <button onClick={refreshMindmap} className="retry-button">
-              重试
-            </button>
-            <button onClick={fetchTestData} className="test-data-button">
-              使用测试数据
-            </button>
-          </div>
-        ) : mapData ? (
-          <ErrorBoundary>
-            <div className="bg-white border rounded-lg shadow-sm overflow-hidden" style={{ height: '80vh' }}>
-              <ReactFlowMap
-                data={mapData}
-                direction={direction}
-                theme={darkMode ? 'dark' : 'primary'}
-              />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="max-w-md p-4 bg-red-50 border border-red-200 rounded text-red-600">
+              {error}
+              <button 
+                onClick={refreshMindmap}
+                className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 rounded-full text-sm"
+              >
+                重试
+              </button>
             </div>
-            {useTestData && (
-              <div className="text-center mt-2 text-xs text-gray-500">
-                当前使用测试数据，无需数据库连接
-              </div>
-            )}
-          </ErrorBoundary>
-        ) : (
-          <div className="empty-container">
-            <p>没有思维导图数据</p>
-            <button onClick={fetchTestData} className="test-data-button">
-              使用测试数据
-            </button>
           </div>
+        ) : (
+          <ErrorBoundary
+            fallback={<div className="p-4 text-red-500">思维导图渲染错误，请尝试刷新页面。</div>}
+          >
+            <ReactFlowMap 
+              data={validateAndTransform(mapData)}
+              direction={direction}
+              theme={darkMode ? 'dark' : 'primary'}
+            />
+          </ErrorBoundary>
         )}
       </div>
     </div>
+  );
+}
+
+// 思维导图页面组件
+export default function MindmapPage() {
+  return (
+    <ErrorBoundary fallback={<div className="p-4 text-red-500">加载思维导图页面时出错，请刷新页面重试。</div>}>
+      <Suspense fallback={<div className="flex items-center justify-center h-screen">加载中...</div>}>
+        <MindmapContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 } 
