@@ -77,6 +77,15 @@ export async function GET(request: NextRequest) {
       const mindmapData = await convertOpmlToMindElixir(opmlContent, maxNodes, maxDepth);
       
       // 添加请求参数信息到返回数据
+      if (!mindmapData.meta) {
+        mindmapData.meta = {
+          totalNodes: 0,
+          processedNodes: 0,
+          skippedNodes: 0, 
+          maxDepthReached: false
+        };
+      }
+      
       mindmapData.meta = {
         ...mindmapData.meta,
         source: 'opml',

@@ -338,8 +338,20 @@ function ensureNodeIds(node: any, parentId: string | null = null, level: number 
   return node;
 }
 
+// 定义函数返回值的接口
+interface MindElixirData {
+  nodeData: any;
+  meta: {
+    totalNodes: number;
+    processedNodes: number;
+    skippedNodes: number;
+    maxDepthReached: boolean;
+    [key: string]: any; // 允许添加其他元数据属性
+  };
+}
+
 // 改进的OPML转换函数，更健壮地处理各种格式
-export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 3000, maxDepth = 10) {
+export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 3000, maxDepth = 10): Promise<MindElixirData> {
   try {
     // 使用更精确的XML解析配置
     const parser = new xml2js.Parser({ 
@@ -356,7 +368,7 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
     
     if (!result || !result.opml || !result.opml.body || !result.opml.body.outline) {
       console.error('OPML结构无效');
-      return { nodeData: { id: 'root', topic: '无效的OPML数据', children: [] } };
+      return { nodeData: { id: 'root', topic: '无效的OPML数据', children: [] }, meta: { totalNodes: 1, processedNodes: 1, skippedNodes: 0, maxDepthReached: false } };
     }
     
     // 提取标题，优先从OPML头部获取
@@ -511,15 +523,7 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
         skippedNodes: skippedNodes,
         maxDepthReached: maxDepthReached
       }
-    } as { 
-      nodeData: any; 
-      meta: { 
-        totalNodes: number; 
-        processedNodes: number; 
-        skippedNodes: number; 
-        maxDepthReached: boolean; 
-      }
-    };
+    } as MindElixirData;
     
   } catch (error: unknown) {
     console.error('转换OPML出错:', error);
@@ -529,7 +533,19 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
         console.error('错误堆栈:', error.stack);
       }
     }
-    return { nodeData: { id: 'root', topic: '转换OPML时发生错误', children: [] } };
+    return { 
+      nodeData: { 
+        id: 'root', 
+        topic: '转换OPML时发生错误', 
+        children: [] 
+      },
+      meta: {
+        totalNodes: 1,
+        processedNodes: 1,
+        skippedNodes: 0,
+        maxDepthReached: false
+      }
+    } as MindElixirData;
   }
 }
 
