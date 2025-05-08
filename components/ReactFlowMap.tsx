@@ -595,7 +595,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       console.log('ReactFlowMap: 处理思维导图数据...');
       
       // 计算数据的总节点数和深度
-      const calculateStats = (node: any, depth = 0, stats = { count: 0, maxDepth: 0 }) => {
+      const calculateStats = (node: any, depth = 0, stats = { count: 0, maxDepth: 0, skippedNodes: 0 }) => {
         if (!node) return stats;
         
         stats.count++;
