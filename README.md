@@ -1632,3 +1632,19 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
 - **技术栈**：TypeScript, Supabase, OpenAI API, Next.js
 - **修改文件**：
   - scripts/upload-knowledge.ts
+
+### 2025-05-11（当前日期）
+- **会话主要目的**：修复思维导图页面的Next.js构建错误
+- **完成的主要任务**：
+  - 修复`app/mindmap/page.tsx`中使用`useSearchParams`导致的构建警告
+  - 重构组件结构，分离出`MindmapContent`组件
+  - 添加Suspense边界包裹使用useSearchParams的组件
+  - 修复ReactFlowMap组件的属性名称
+- **关键决策和解决方案**：
+  - 使用React.Suspense边界解决Next.js警告
+  - 优化组件结构，提高代码可维护性
+  - 使用useCallback和正确的依赖数组避免闭包捕获问题
+  - 确保组件属性名称与接口定义一致
+- **技术栈**：React, Next.js, TypeScript, React Flow
+- **修改文件**：
+  - app/mindmap/page.tsx
