@@ -355,17 +355,43 @@ function MindmapContent() {
   };
   
   // 切换数据源
-  const toggleDataSource = async () => {
-    setLoading(true);
-    if (useTestData) {
-      // 从测试数据切换到真实数据
-      setUseTestData(false);
-      await fetchActiveMindmap();
-    } else {
-      // 从真实数据切换到测试数据
-      await fetchTestData();
+  const toggleDataSource = useCallback(async () => {
+    try {
+      if (useTestData) {
+        // 切回到Supabase数据
+        console.log('尝试切换到Supabase数据');
+        if (activeId) {
+          await fetchMindmapData(activeId);
+        } else {
+          await fetchActiveMindmap();
+        }
+        setUseTestData(false);
+      } else {
+        // 切换到测试数据
+        await fetchTestData();
+      }
+    } catch (err) {
+      console.error('切换数据源出错:', err);
+      // 如果切换到Supabase失败，自动回退到测试数据
+      if (!useTestData) {
+        await fetchTestData();
+      }
     }
-  };
+  }, [useTestData, activeId, fetchMindmapData, fetchActiveMindmap, fetchTestData]);
+  
+  // 添加加载民法测试数据的功能
+  const loadCivilLawTestData = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('加载民法测试数据');
+      await fetchTestData();
+    } catch (err) {
+      console.error('加载民法测试数据出错:', err);
+      setError(`加载民法测试数据失败: ${err instanceof Error ? err.message : '未知错误'}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchTestData]);
   
   // 刷新思维导图
   const refreshMindmap = () => {
@@ -394,49 +420,52 @@ function MindmapContent() {
   }, [searchParams, fetchActiveMindmap]);
   
   return (
-    <div className={`flex flex-col h-screen w-full ${darkMode ? 'dark-theme' : ''}`}>
-      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 shadow-sm">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-white">思维导图</h1>
-        <div className="flex space-x-2">
-          {useTestData && (
-            <div className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
-              使用测试数据
-            </div>
-          )}
+    <div className={`w-full h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
+      <div className="p-2 flex justify-between items-center bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="text-lg font-semibold text-gray-800 dark:text-white">
+          思维导图 {activeId ? `- ${activeId.split('-').pop()}` : ''}
+          {useTestData && <span className="ml-2 text-sm text-blue-500 dark:text-blue-400">(测试数据)</span>}
+        </div>
+        
+        <div className="flex items-center space-x-3">
           <button
+            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             onClick={refreshMindmap}
-            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-            title="刷新思维导图"
+            title="刷新"
           >
-            <FiRefreshCw className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            <FiRefreshCw className="w-5 h-5" />
           </button>
+          
           <button
+            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             onClick={toggleDirection}
-            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-            title={`切换到${direction === 'horizontal' ? '垂直' : '水平'}布局`}
+            title={direction === 'horizontal' ? '切换到垂直布局' : '切换到水平布局'}
           >
-            <FiLayout className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            <FiLayout className="w-5 h-5" />
           </button>
+          
           <button
+            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             onClick={toggleTheme}
-            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-            title={`切换到${darkMode ? '浅色' : '深色'}主题`}
+            title={darkMode ? '切换到浅色主题' : '切换到深色主题'}
           >
-            {darkMode ? (
-              <FiSun className="w-5 h-5 text-gray-300" />
-            ) : (
-              <FiMoon className="w-5 h-5 text-gray-600" />
-            )}
+            {darkMode ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
           </button>
+
           <button
+            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             onClick={toggleDataSource}
-            className={`px-3 py-1 rounded text-sm ${
-              useTestData 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-            }`}
+            title={useTestData ? '切换到Supabase数据' : '切换到测试数据'}
           >
-            {useTestData ? '切换到真实数据' : '切换到测试数据'}
+            <span className="text-xs whitespace-nowrap">{useTestData ? '实际数据' : '测试数据'}</span>
+          </button>
+          
+          <button
+            className="p-2 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition"
+            onClick={loadCivilLawTestData}
+            title="加载民法测试数据"
+          >
+            <span className="text-xs whitespace-nowrap">加载民法数据</span>
           </button>
         </div>
       </div>

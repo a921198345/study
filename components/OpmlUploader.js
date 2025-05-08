@@ -37,104 +37,52 @@ export default function OpmlUploader({ onUploadResult }) {
     // 创建FormData对象
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('makeActive', 'true'); // 默认设置为活跃文件
 
     try {
-      // 上传OPML文件
+      // 使用新的API端点上传OPML文件
       setUploadProgress(30); // 上传中
-      const uploadResponse = await fetch('/api/upload-opml', {
+      const uploadResponse = await fetch('/api/admin/upload-opml', {
         method: 'POST',
         body: formData,
       });
 
       if (!uploadResponse.ok) {
         const errorData = await uploadResponse.json();
-        throw new Error(errorData.error || '上传失败');
+        throw new Error(errorData.message || '上传失败');
       }
 
-      setUploadProgress(60); // 上传完成
+      setUploadProgress(70); // 上传完成
 
       const uploadData = await uploadResponse.json();
       
-      // 处理OPML文件
-      setUploadProgress(80); // 开始处理
-      const processResponse = await fetch('/api/process-opml', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ filePath: uploadData.filePath }),
-      });
-
-      // 尝试获取响应内容，无论是否成功
-      let processData;
-      try {
-        processData = await processResponse.json();
-      } catch (jsonErr) {
-        throw new Error('无法解析处理结果：服务器响应格式错误');
-      }
-
-      // 检查响应状态
-      if (!processResponse.ok) {
-        const errorMessage = processData.error || 
-                             processData.details || 
-                             `处理失败 (${processResponse.status})`;
-                             
-        if (processData.stdout) {
-          console.error('服务器输出:', processData.stdout);
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      setResult(processData);
+      // 直接使用上传API返回的结果，无需再调用process-opml
       setUploadProgress(100); // 处理完成
+      
+      setResult({
+        success: uploadData.success,
+        nodeCount: uploadData.fileInfo?.nodesCount || 0,
+        filePath: uploadData.fileInfo?.name || '未知',
+        outputPath: uploadData.fileInfo?.id || '未知',
+        tree: [
+          {
+            title: uploadData.fileInfo?.name || '思维导图',
+            id: uploadData.fileInfo?.id || 'root',
+            children: []
+          }
+        ]
+      });
       
       // 如果提供了回调函数，则调用它
       if (typeof onUploadResult === 'function') {
-        onUploadResult(processData);
+        onUploadResult(uploadData);
       }
     } catch (err) {
       console.error('上传或处理过程中出错:', err);
-      // 检查错误信息是否包含日志输出 (这通常表示服务器端有日志但处理成功)
-      if (err.message && err.message.includes('[') && err.message.includes('节点')) {
-        // 可能是日志被误认为错误，尝试重新加载
-        setError('处理过程中产生了日志信息，正在尝试重新获取结果...');
-        
-        // 等待短暂时间后重试获取结果
-        setTimeout(async () => {
-          try {
-            // 假设文件已经被处理，尝试获取结果
-            const retryPath = uploadData.filePath.replace('/opml/', '/json/').replace('.opml', '.json');
-            const retryResponse = await fetch(`/api/get-json-result?path=${encodeURIComponent(retryPath)}`);
-            
-            if (retryResponse.ok) {
-              const retryData = await retryResponse.json();
-              setResult(retryData);
-              setUploadProgress(100);
-              setError(null);
-              
-              // 如果提供了回调函数，则调用它
-              if (typeof onUploadResult === 'function') {
-                onUploadResult(retryData);
-              }
-            } else {
-              setError('尝试重新获取结果失败，请重试上传');
-            }
-          } catch (retryErr) {
-            setError(`处理可能已成功，但获取结果失败: ${retryErr.message}`);
-          } finally {
-            setUploading(false);
-          }
-        }, 2000);
-        return;
-      }
-      
       setError(err.message || '上传或处理过程中出错');
       setUploadProgress(0);
     } finally {
-      if (!err || !err.message || !(err.message.includes('[') && err.message.includes('节点'))) {
-        setUploading(false);
-      }
+      setUploading(false);
     }
   };
 
