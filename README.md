@@ -1959,3 +1959,23 @@ https://study-7ts78sy6h-cuiges-projects.vercel.app
 - `app/api/active-mindmap/route.ts`：重构了整个数据获取逻辑，避免服务端API调用链
 
 这次修复解决了在Vercel生产环境中的思维导图数据加载错误，使思维导图功能能够在生产环境正常工作。通过直接从数据库获取JSON内容，我们避免了服务端API调用链带来的授权问题，同时提高了性能和可靠性。
+
+### 2023-10-16（当前日期）
+- **会话主要目的**：修复ReactFlowMap组件中的TypeScript类型错误以便成功部署到Vercel
+- **完成的主要任务**：
+  - 修复CustomNode组件中的React.MouseEvent类型，添加正确的泛型参数HTMLDivElement
+  - 修复事件处理函数handleNodeToggle，正确处理CustomEvent类型
+  - 移除事件监听器中不必要的as any类型断言
+  - 确保事件监听使用正确的类型
+- **关键决策和解决方案**：
+  - 使用明确的类型定义，而非any类型断言
+  - 在事件处理函数中正确进行类型转换
+  - 遵循TypeScript的类型安全原则
+- **技术栈**：React, TypeScript, ReactFlow, Next.js
+- **修改文件**：components/ReactFlowMap.tsx
+
+思维导图组件修复要点：
+1. 将React.MouseEvent类型添加正确的泛型参数HTMLDivElement
+2. 将CustomEvent类型处理改为先接收Event，然后进行类型转换
+3. 移除事件监听器中的as any类型断言
+4. 确保组件可以在Vercel环境下正确构建

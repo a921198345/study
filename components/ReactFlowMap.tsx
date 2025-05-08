@@ -56,7 +56,7 @@ const CustomNode = ({ data, id, selected }: NodeProps) => {
   const color = getColor();
   
   // 处理展开/折叠点击
-  const handleExpandClick = (event: React.MouseEvent) => {
+  const handleExpandClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
     setExpanded(!expanded);
     
@@ -565,8 +565,9 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   
   // 监听节点折叠/展开事件
   useEffect(() => {
-    const handleNodeToggle = (event: CustomEvent) => {
-      const { id, expanded } = event.detail;
+    const handleNodeToggle = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { id, expanded } = customEvent.detail;
       
       setCollapsedNodes(prev => {
         const newSet = new Set(prev);
@@ -582,8 +583,8 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       setTimeout(() => refreshLayout(), 0);
     };
     
-    window.addEventListener('node:toggle' as any, handleNodeToggle as any);
-    return () => window.removeEventListener('node:toggle' as any, handleNodeToggle as any);
+    window.addEventListener('node:toggle', handleNodeToggle);
+    return () => window.removeEventListener('node:toggle', handleNodeToggle);
   }, [data, themeColors]);
   
   // 初始化节点和边缘
