@@ -1590,3 +1590,17 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
   - app/api/mindmap-data/route.ts
   - app/api/mindmap-test/route.ts
   - app/mindmap/page.tsx
+
+### 2025-05-08（当前日期）
+- **会话主要目的**：修复数据库模式应用脚本中的TypeScript空值检查错误
+- **完成的主要任务**：
+  - 修复scripts/apply-db-schema-direct.ts中supabaseAdmin空值检查错误
+  - 增强脚本安全性，确保在继续操作前验证客户端是否初始化
+  - 创建非空的admin客户端变量，避免TypeScript编译错误
+- **关键决策和解决方案**：
+  - 添加对supabaseAdmin的显式非空检查，在为空时提前抛出错误
+  - 创建一个非空的admin变量引用supabaseAdmin，解决TypeScript类型检查问题
+  - 替换所有supabaseAdmin引用为admin变量，确保类型安全
+- **技术栈**：TypeScript, Supabase, Next.js, Vercel
+- **修改文件**：
+  - scripts/apply-db-schema-direct.ts
