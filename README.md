@@ -1821,3 +1821,52 @@ fixed = fixed.replace(/null\s*"/g, 'null,"');  // 修复null"为null,"
 - `app/api/mindmap-data/route.ts`: 修复类型错误和统计逻辑
 
 这次修复解决了Vercel部署时的构建错误，确保应用可以顺利部署和运行。TypeScript的类型检查帮助我们在部署前捕获潜在问题，提高代码质量和可靠性。
+
+## 2023-07-05 会话总结：修复TypeScript类型错误
+
+### 会话主要目的
+修复Vercel部署过程中出现的TypeScript类型错误，解决rootNode对象的meta属性问题。
+
+### 完成的主要任务
+- 修复`app/api/mindmap-data/route.ts`文件中rootNode对象的类型错误
+- 为rootNode对象添加完整的TypeScript接口定义，包含meta属性
+- 使用类型断言确保函数返回值类型正确
+
+### 关键决策和解决方案
+- 为rootNode添加明确的类型定义，包括可选的meta属性和其内部结构
+- 使用TypeScript的类型断言(as)确保返回对象符合期望的类型结构
+- 保持代码功能不变，仅添加必要的类型注解以满足TypeScript类型检查
+
+### 使用的技术栈
+- TypeScript类型系统
+- Next.js构建工具链
+
+### 修改的文件
+- `app/api/mindmap-data/route.ts`: 添加类型定义，解决类型错误
+
+这次修复解决了Vercel部署时的另一个构建错误，确保应用可以成功编译和部署。通过添加完整的类型定义，我们提高了代码的类型安全性和可维护性，防止类似的类型错误在未来再次发生。
+
+## 2023-07-06 会话总结：修复TypeScript meta属性类型错误
+
+### 会话主要目的
+修复Vercel部署过程中出现的TypeScript类型错误，解决rootNode对象的meta属性类型问题。
+
+### 完成的主要任务
+- 修复`app/api/mindmap-data/route.ts`文件中rootNode对象的类型错误
+- 为rootNode对象添加完整的TypeScript接口定义，包含meta属性
+- 使用类型断言确保函数返回值类型正确
+
+### 关键决策和解决方案
+- 为rootNode添加明确的类型定义，包括可选的meta属性和其内部结构
+- 使用TypeScript的类型断言(as)确保返回对象符合期望的类型结构
+- 保持代码功能不变，仅添加必要的类型注解以满足TypeScript类型检查
+
+### 使用的技术栈
+- TypeScript类型系统
+- Next.js构建工具链
+
+### 修改的文件
+- `app/api/mindmap-data/route.ts`: 添加类型定义，解决类型错误
+
+这次修复解决了Vercel部署时的另一个构建错误，确保应用可以成功编译和部署。通过添加完整的类型定义，我们提高了代码的类型安全性和可维护性，防止类似的类型错误在未来再次发生。
+  
