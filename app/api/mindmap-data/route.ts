@@ -339,7 +339,7 @@ function ensureNodeIds(node: any, parentId: string | null = null, level: number 
 }
 
 // 改进的OPML转换函数，更健壮地处理各种格式
-async function convertOpmlToMindElixir(opmlContent: string) {
+export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 3000, maxDepth = 10) {
   try {
     // 使用更精确的XML解析配置
     const parser = new xml2js.Parser({ 
@@ -373,17 +373,45 @@ async function convertOpmlToMindElixir(opmlContent: string) {
       children: []
     };
     
-    // 计数已处理的节点
+    // 计数已处理的节点和跳过的节点
     let nodesCount = 1; // 根节点算一个
+    let skippedNodes = 0;
+    let maxDepthReached = false;
+    let skippedDepth = {};
     
     // 递归处理OPML节点
-    function processOutline(outline: any, parent: any) {
+    function processOutline(outline: any, parent: any, depth = 1) {
       if (!outline) return;
+      
+      // 深度限制检查
+      if (depth > maxDepth) {
+        if (!maxDepthReached) {
+          console.warn(`达到最大深度限制 ${maxDepth}，后续深层节点将被跳过`);
+          maxDepthReached = true;
+        }
+        skippedDepth[depth] = (skippedDepth[depth] || 0) + 1;
+        return;
+      }
+      
+      // 节点数量限制检查
+      if (nodesCount >= maxNodes) {
+        if (skippedNodes === 0) {
+          console.warn(`达到最大节点数量限制 ${maxNodes}，后续节点将被跳过`);
+        }
+        skippedNodes++;
+        return;
+      }
       
       // 确保outline是数组
       const outlines = Array.isArray(outline) ? outline : [outline];
       
       outlines.forEach((item: any) => {
+        // 节点数量再次检查（循环内）
+        if (nodesCount >= maxNodes) {
+          skippedNodes++;
+          return;
+        }
+        
         // 提取节点文本，按优先级处理多种可能的属性
         let nodeTopic = '未命名节点';
         
@@ -413,7 +441,8 @@ async function convertOpmlToMindElixir(opmlContent: string) {
         const node = {
           id: `node-${uuidv4().substring(0, 8)}`,
           topic: nodeTopic.trim() || '未命名节点',
-          expanded: true,
+          expanded: depth <= 3, // 只有前3层默认展开
+          depth: depth, // 记录节点深度
           children: []
         };
         
@@ -424,11 +453,11 @@ async function convertOpmlToMindElixir(opmlContent: string) {
         
         // 处理子节点 - 处理更多可能的子节点字段
         if (item.outline) {
-          processOutline(item.outline, node);
+          processOutline(item.outline, node, depth + 1);
         } else if (item.children) {
-          processOutline(item.children, node);
+          processOutline(item.children, node, depth + 1);
         } else if (item.$ && item.$.children) {
-          processOutline(item.$.children, node);
+          processOutline(item.$.children, node, depth + 1);
         }
       });
     }
@@ -436,7 +465,19 @@ async function convertOpmlToMindElixir(opmlContent: string) {
     // 开始处理
     processOutline(result.opml.body.outline, rootNode);
     
-    console.log(`OPML解析完成，共处理 ${nodesCount} 个节点`);
+    console.log(`OPML解析完成，共处理 ${nodesCount} 个节点，跳过 ${skippedNodes} 个节点`);
+    if (maxDepthReached) {
+      console.log(`由于深度限制跳过的节点详情:`, skippedDepth);
+    }
+    
+    // 添加元数据信息
+    rootNode.meta = {
+      totalNodes: nodesCount,
+      processedNodes: nodesCount,
+      skippedNodes: skippedNodes,
+      maxDepthReached: maxDepthReached,
+      maxDepth: maxDepth
+    };
     
     // 确保所有节点都有ID
     const processedRoot = ensureNodeIds(rootNode);
@@ -448,7 +489,15 @@ async function convertOpmlToMindElixir(opmlContent: string) {
       console.log('第一个子节点:', JSON.stringify(processedRoot.children[0]).substring(0, 300) + '...');
     }
     
-    return { nodeData: processedRoot };
+    return { 
+      nodeData: processedRoot,
+      meta: {
+        totalNodes: nodesCount,
+        processedNodes: nodesCount,
+        skippedNodes: skippedNodes,
+        maxDepthReached: maxDepthReached
+      }
+    };
     
   } catch (error: unknown) {
     console.error('转换OPML出错:', error);

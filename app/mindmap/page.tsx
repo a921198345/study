@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import axios, { AxiosError } from 'axios';
@@ -208,297 +208,317 @@ function validateAndTransform(data: any) {
   }
 }
 
-// 思维导图页面主内容组件
-function MindmapContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  const [mapData, setMapData] = useState<any>(null);
+interface MindmapContentProps {
+  activeId?: string;
+  showSuccessMessage?: boolean;
+}
+
+export function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContentProps) {
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [direction, setDirection] = useState<'horizontal' | 'vertical'>('horizontal');
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [useTestData, setUseTestData] = useState(false);
+  const [direction, setDirection] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [theme, setTheme] = useState<'primary' | 'dark' | 'green' | 'purple'>('primary');
+  const [loadingCivilLaw, setLoadingCivilLaw] = useState(false);
+  const [mapStats, setMapStats] = useState<any>({
+    totalNodes: 0,
+    visibleNodes: 0,
+    hiddenNodes: 0,
+    maxDepth: 0
+  });
   
-  // 获取测试数据
-  const fetchTestData = useCallback(async () => {
-    try {
-      console.log('获取测试思维导图数据');
-      setLoading(true);
-      
-      const response = await axios.get('/api/mindmap-test');
-      
-      if (response.data) {
-        console.log('测试思维导图数据获取成功');
-        setMapData(response.data);
-        setUseTestData(true);
-      } else {
-        setError('获取测试思维导图数据失败');
-      }
-    } catch (err: unknown) {
-      console.error('获取测试思维导图数据时出错:', err);
-      const errorMessage = err instanceof Error ? err.message : '未知错误';
-      setError(`获取测试思维导图数据时出错: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // 用于显示加载状态信息
+  const loadingRef = useRef<HTMLDivElement>(null);
   
-  // 获取思维导图数据
-  const fetchMindmapData = useCallback(async (id: string) => {
-    try {
-      console.log(`正在获取思维导图数据, ID: ${id}`);
-      const response = await axios.get(`/api/mindmap-data?id=${id}`);
-      
-      if (response.data) {
-        console.log('思维导图数据获取成功');
-        setMapData(response.data);
-      } else {
-        throw new Error('获取思维导图数据失败');
-      }
-    } catch (err: unknown) {
-      console.error('获取思维导图数据时出错:', err);
-      const errorMessage = err instanceof Error ? err.message : '未知错误';
-      throw new Error(`获取思维导图数据失败: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // 用于控制数据源切换
+  const [dataSource, setDataSource] = useState<'active' | 'test' | 'supabase'>('active');
   
-  // 获取活跃思维导图
-  const fetchActiveMindmap = useCallback(async () => {
+  // 使用useCallback确保函数不会频繁重建
+  const refreshMindmap = useCallback(async () => {
     try {
       setLoading(true);
-      setError('');
+      setError(null);
       
-      // 先检查是否强制使用测试数据
-      if (searchParams.get('test') === 'true') {
-        await fetchTestData();
-        return;
-      }
+      let mindmapData;
       
-      // 先从URL参数获取ID
-      const id = searchParams.get('id');
-      
-      // 如果URL中有ID，直接使用
-      if (id) {
-        setActiveId(id);
-        try {
-          await fetchMindmapData(id);
-        } catch (fetchError) {
-          console.error('获取思维导图数据失败，尝试使用测试数据:', fetchError);
-          await fetchTestData();
+      // 根据数据源加载不同数据
+      if (dataSource === 'test') {
+        console.log('加载测试数据...');
+        const response = await fetch('/api/mindmap-test');
+        if (!response.ok) {
+          throw new Error(`获取测试数据失败: ${response.status} ${response.statusText}`);
         }
-        return;
+        mindmapData = await response.json();
+      } else if (dataSource === 'supabase' && activeId) {
+        console.log(`从Supabase加载ID=${activeId}的数据...`);
+        const response = await fetch(`/api/mindmap-data?id=${activeId}`);
+        if (!response.ok) {
+          throw new Error(`获取思维导图数据失败: ${response.status} ${response.statusText}`);
+        }
+        mindmapData = await response.json();
+      } else {
+        console.log('加载活跃思维导图数据...');
+        const response = await fetch('/api/active-mindmap');
+        if (!response.ok) {
+          throw new Error(`获取活跃思维导图数据失败: ${response.status} ${response.statusText}`);
+        }
+        mindmapData = await response.json();
       }
       
-      // 检查 supabase 是否可用
-      if (!supabase) {
-        console.error('Supabase 客户端未初始化，可能是环境变量缺失');
-        console.log('使用测试数据作为备选');
-        await fetchTestData();
-        return;
+      if (mindmapData.error) {
+        throw new Error(`加载思维导图数据错误: ${mindmapData.error}`);
       }
       
-      try {
-        // 先不使用single()查询，避免在没有活跃数据时出错
-        const { data, error } = await supabase
-          .from('mindmaps')
-          .select('id')
-          .eq('is_active', true)
-          .limit(1);
+      console.log('思维导图数据加载成功', mindmapData);
+      
+      // 检查数据是否包含元数据
+      if (mindmapData.meta) {
+        // 显示加载数据统计
+        const { totalNodes, processedNodes, skippedNodes, maxDepthReached } = mindmapData.meta;
+        console.log(`思维导图统计信息 - 总节点数: ${totalNodes}, 已处理: ${processedNodes}, 已跳过: ${skippedNodes}`);
         
-        // 改进错误处理逻辑，只有当错误对象有实际内容时才视为错误
-        if (error && Object.keys(error).length > 0) {
-          console.error('获取活跃思维导图失败:', error);
-          console.log('使用测试数据作为备选');
-          await fetchTestData();
-          return;
+        if (maxDepthReached) {
+          console.warn(`由于深度限制，部分深层节点未显示`);
         }
         
-        // 即使error是空对象{}，也继续检查data
-        if (data && data.length > 0) {
-          setActiveId(data[0].id);
-          try {
-            await fetchMindmapData(data[0].id);
-          } catch (fetchError) {
-            console.error('获取思维导图数据失败，尝试使用测试数据:', fetchError);
-            await fetchTestData();
-          }
-        } else {
-          console.log('未找到活跃的思维导图，使用测试数据');
-          await fetchTestData();
+        // 更新加载状态信息
+        if (loadingRef.current) {
+          loadingRef.current.textContent = `已加载 ${processedNodes} 个节点，跳过 ${skippedNodes} 个节点`;
         }
-      } catch (queryError) {
-        console.error('查询活跃思维导图时出错:', queryError);
-        console.log('使用测试数据作为备选');
-        await fetchTestData();
       }
-    } catch (err: any) {
-      console.error('获取活跃思维导图流程出错:', err);
-      setError('获取思维导图数据失败，请刷新页面重试');
+      
+      setData(mindmapData);
+      setLoading(false);
+    } catch (err) {
+      console.error('加载思维导图数据失败:', err);
+      setError(err instanceof Error ? err.message : '未知错误');
       setLoading(false);
     }
-  }, [searchParams, fetchTestData, fetchMindmapData]);
+  }, [activeId, dataSource]);
   
-  // 切换布局方向
-  const toggleDirection = () => {
-    setDirection(prev => prev === 'horizontal' ? 'vertical' : 'horizontal');
-  };
+  // 在组件挂载后加载数据
+  useEffect(() => {
+    refreshMindmap();
+  }, [refreshMindmap]);
   
-  // 切换主题模式
-  const toggleTheme = () => {
-    setDarkMode(prev => !prev);
-    // 应用深色/浅色主题到文档
-    document.documentElement.classList.toggle('dark-theme');
-  };
+  // 在activeId更改时刷新
+  useEffect(() => {
+    if (activeId) {
+      refreshMindmap();
+    }
+  }, [activeId, refreshMindmap]);
   
   // 切换数据源
-  const toggleDataSource = useCallback(async () => {
-    try {
-      if (useTestData) {
-        // 切回到Supabase数据
-        console.log('尝试切换到Supabase数据');
-        if (activeId) {
-          await fetchMindmapData(activeId);
-        } else {
-          await fetchActiveMindmap();
-        }
-        setUseTestData(false);
-      } else {
-        // 切换到测试数据
-        await fetchTestData();
-      }
-    } catch (err) {
-      console.error('切换数据源出错:', err);
-      // 如果切换到Supabase失败，自动回退到测试数据
-      if (!useTestData) {
-        await fetchTestData();
-      }
-    }
-  }, [useTestData, activeId, fetchMindmapData, fetchActiveMindmap, fetchTestData]);
+  const toggleDataSource = useCallback((source: 'active' | 'test' | 'supabase') => {
+    setDataSource(source);
+    // 切换后自动刷新
+    setTimeout(() => refreshMindmap(), 0);
+  }, [refreshMindmap]);
   
-  // 添加加载民法测试数据的功能
+  // 加载民法测试数据
   const loadCivilLawTestData = useCallback(async () => {
     try {
-      setLoading(true);
-      console.log('加载民法测试数据');
-      await fetchTestData();
+      setLoadingCivilLaw(true);
+      console.log('加载民法测试数据...');
+      
+      // 更新加载状态信息
+      if (loadingRef.current) {
+        loadingRef.current.textContent = '正在加载民法测试数据...';
+      }
+      
+      const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=5000&maxDepth=10');
+      if (!response.ok) {
+        throw new Error(`获取民法测试数据失败: ${response.status} ${response.statusText}`);
+      }
+      
+      const testData = await response.json();
+      
+      // 显示加载数据统计（如果有）
+      if (testData.meta) {
+        const { totalNodes, processedNodes, skippedNodes, maxDepthReached } = testData.meta;
+        console.log(`民法测试数据 - 总节点数: ${totalNodes}, 已处理: ${processedNodes}, 已跳过: ${skippedNodes}`);
+        
+        if (maxDepthReached) {
+          console.warn(`由于深度限制，部分深层节点未显示`);
+        }
+        
+        // 更新加载状态信息
+        if (loadingRef.current) {
+          loadingRef.current.textContent = `已加载 ${processedNodes} 个节点，跳过 ${skippedNodes} 个节点`;
+        }
+      }
+      
+      setData(testData);
+      setDataSource('test');
+      setLoadingCivilLaw(false);
     } catch (err) {
-      console.error('加载民法测试数据出错:', err);
-      setError(`加载民法测试数据失败: ${err instanceof Error ? err.message : '未知错误'}`);
-    } finally {
-      setLoading(false);
+      console.error('加载民法测试数据失败:', err);
+      setError(err instanceof Error ? err.message : '未知错误');
+      setLoadingCivilLaw(false);
     }
-  }, [fetchTestData]);
+  }, []);
   
-  // 刷新思维导图
-  const refreshMindmap = () => {
-    if (useTestData) {
-      fetchTestData();
-    } else if (activeId) {
-      setLoading(true);
-      fetchMindmapData(activeId).catch(err => {
-        console.error('刷新思维导图失败:', err);
-        fetchTestData();
-      });
-    } else {
-      fetchActiveMindmap();
+  // 处理地图统计信息
+  const handleMapStats = useCallback((stats: any) => {
+    setMapStats(stats);
+    // 更新加载状态信息
+    if (loadingRef.current && stats.visibleNodes > 0) {
+      loadingRef.current.textContent = `显示 ${stats.visibleNodes}/${stats.totalNodes} 个节点，当前深度 ${stats.loadedDepth}/${stats.maxDepth}`;
     }
-  };
+  }, []);
   
-  // 在组件挂载时加载思维导图数据
-  useEffect(() => {
-    fetchActiveMindmap();
-    
-    // 从URL获取深色模式设置
-    if (searchParams.get('dark') === 'true') {
-      setDarkMode(true);
-      document.documentElement.classList.add('dark-theme');
-    }
-  }, [searchParams, fetchActiveMindmap]);
+  // 切换方向
+  const toggleDirection = useCallback(() => {
+    setDirection(prev => prev === 'horizontal' ? 'vertical' : 'horizontal');
+  }, []);
+  
+  // 切换主题
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => {
+      const themes: Array<'primary' | 'dark' | 'green' | 'purple'> = ['primary', 'dark', 'green', 'purple'];
+      const currentIndex = themes.indexOf(prev);
+      return themes[(currentIndex + 1) % themes.length];
+    });
+  }, []);
   
   return (
-    <div className={`w-full h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
-      <div className="p-2 flex justify-between items-center bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="text-lg font-semibold text-gray-800 dark:text-white">
-          思维导图 {activeId ? `- ${activeId.split('-').pop()}` : ''}
-          {useTestData && <span className="ml-2 text-sm text-blue-500 dark:text-blue-400">(测试数据)</span>}
+    <div className="mindmap-container" style={{ width: '100%', height: 'calc(100vh - 100px)' }}>
+      <div className="toolbar mb-2 p-2 bg-white shadow-sm rounded-md flex flex-wrap gap-2 items-center">
+        <button
+          onClick={refreshMindmap}
+          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+          disabled={loading}
+        >
+          刷新
+        </button>
+        
+        <div className="flex space-x-2">
+          <button
+            onClick={() => toggleDataSource('active')}
+            className={`px-3 py-1 rounded text-sm ${
+              dataSource === 'active' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            活跃文件
+          </button>
+          <button
+            onClick={() => toggleDataSource('test')}
+            className={`px-3 py-1 rounded text-sm ${
+              dataSource === 'test' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            测试数据
+          </button>
+          <button
+            onClick={() => toggleDataSource('supabase')}
+            className={`px-3 py-1 rounded text-sm ${
+              dataSource === 'supabase' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+            disabled={!activeId}
+          >
+            Supabase数据
+          </button>
         </div>
         
-        <div className="flex items-center space-x-3">
-          <button
-            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-            onClick={refreshMindmap}
-            title="刷新"
-          >
-            <FiRefreshCw className="w-5 h-5" />
-          </button>
-          
-          <button
-            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-            onClick={toggleDirection}
-            title={direction === 'horizontal' ? '切换到垂直布局' : '切换到水平布局'}
-          >
-            <FiLayout className="w-5 h-5" />
-          </button>
-          
-          <button
-            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-            onClick={toggleTheme}
-            title={darkMode ? '切换到浅色主题' : '切换到深色主题'}
-          >
-            {darkMode ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
-          </button>
-
-          <button
-            className="p-2 rounded-full text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-            onClick={toggleDataSource}
-            title={useTestData ? '切换到Supabase数据' : '切换到测试数据'}
-          >
-            <span className="text-xs whitespace-nowrap">{useTestData ? '实际数据' : '测试数据'}</span>
-          </button>
-          
-          <button
-            className="p-2 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition"
-            onClick={loadCivilLawTestData}
-            title="加载民法测试数据"
-          >
-            <span className="text-xs whitespace-nowrap">加载民法数据</span>
-          </button>
+        <button
+          onClick={loadCivilLawTestData}
+          className={`px-3 py-1 rounded text-sm ${
+            loadingCivilLaw 
+              ? 'bg-gray-400 text-white cursor-not-allowed' 
+              : 'bg-green-500 text-white hover:bg-green-600'
+          }`}
+          disabled={loadingCivilLaw}
+        >
+          {loadingCivilLaw ? '加载中...' : '加载民法数据'}
+        </button>
+        
+        <button
+          onClick={toggleDirection}
+          className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
+        >
+          {direction === 'horizontal' ? '切换垂直布局' : '切换水平布局'}
+        </button>
+        
+        <button
+          onClick={toggleTheme}
+          className="px-3 py-1 bg-amber-500 text-white rounded hover:bg-amber-600 text-sm"
+        >
+          切换主题
+        </button>
+        
+        <div className="ml-auto text-xs text-gray-600 flex items-center">
+          <div className="mr-4">
+            <div>数据源: <span className="font-medium">{
+              dataSource === 'active' ? '活跃文件' : 
+              dataSource === 'test' ? '测试数据' : 'Supabase'
+            }</span></div>
+            <div>节点统计: <span className="font-medium">{mapStats.visibleNodes}/{mapStats.totalNodes}</span></div>
+          </div>
+          <div ref={loadingRef} className="status-message">
+            {loading ? '加载中...' : '就绪'}
+          </div>
         </div>
       </div>
       
-      <div className="flex-1 relative">
-        {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : error ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="max-w-md p-4 bg-red-50 border border-red-200 rounded text-red-600">
-              {error}
-              <button 
-                onClick={refreshMindmap}
-                className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 rounded-full text-sm"
-              >
-                重试
-              </button>
-            </div>
-          </div>
-        ) : (
-          <ErrorBoundary
-            fallback={<div className="p-4 text-red-500">思维导图渲染错误，请尝试刷新页面。</div>}
+      {error ? (
+        <div className="error-container p-4 border border-red-300 bg-red-50 rounded-md text-red-700">
+          <div className="font-medium mb-2">加载思维导图失败</div>
+          <div>{error}</div>
+          <button
+            onClick={refreshMindmap}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
+            重试
+          </button>
+        </div>
+      ) : (
+        <div className="mindmap-wrapper" style={{ width: '100%', height: 'calc(100vh - 150px)' }}>
+          {data ? (
             <ReactFlowMap 
-              data={validateAndTransform(mapData)}
-              direction={direction}
-              theme={darkMode ? 'dark' : 'primary'}
+              data={data} 
+              direction={direction} 
+              theme={theme}
+              height="100%" 
+              width="100%"
+              maxInitialNodes={2000}
+              batchSize={500}
+              onMapStats={handleMapStats}
             />
-          </ErrorBoundary>
-        )}
-      </div>
+          ) : loading ? (
+            <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-4">
+              <div className="text-gray-700 mb-2 font-medium">加载思维导图中...</div>
+              <div className="loader"></div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full bg-gray-50 p-4">
+              <div className="text-gray-500">无可用数据，请刷新或选择其他数据源</div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      <style jsx>{`
+        .loader {
+          border: 5px solid #f3f3f3;
+          border-radius: 50%;
+          border-top: 5px solid #3498db;
+          width: 50px;
+          height: 50px;
+          animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
