@@ -374,10 +374,11 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
     };
     
     // 计数已处理的节点和跳过的节点
-    let nodesCount = 1; // 根节点算一个
+    let totalNodes = 1; // 根节点算一个
+    let processedNodes = 0;
     let skippedNodes = 0;
     let maxDepthReached = false;
-    let skippedDepth = {};
+    let skippedDepth: {[key: number]: number} = {};
     
     // 递归处理OPML节点
     function processOutline(outline: any, parent: any, depth = 1) {
@@ -394,7 +395,7 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
       }
       
       // 节点数量限制检查
-      if (nodesCount >= maxNodes) {
+      if (totalNodes >= maxNodes) {
         if (skippedNodes === 0) {
           console.warn(`达到最大节点数量限制 ${maxNodes}，后续节点将被跳过`);
         }
@@ -407,7 +408,7 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
       
       outlines.forEach((item: any) => {
         // 节点数量再次检查（循环内）
-        if (nodesCount >= maxNodes) {
+        if (totalNodes >= maxNodes) {
           skippedNodes++;
           return;
         }
@@ -446,7 +447,8 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
           children: []
         };
         
-        nodesCount++; // 增加节点计数
+        totalNodes++; // 增加总节点计数
+        processedNodes++; // 增加已处理节点计数
         
         // 添加到父节点
         parent.children.push(node);
@@ -465,15 +467,15 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
     // 开始处理
     processOutline(result.opml.body.outline, rootNode);
     
-    console.log(`OPML解析完成，共处理 ${nodesCount} 个节点，跳过 ${skippedNodes} 个节点`);
+    console.log(`OPML解析完成，共处理 ${totalNodes} 个节点，跳过 ${skippedNodes} 个节点`);
     if (maxDepthReached) {
       console.log(`由于深度限制跳过的节点详情:`, skippedDepth);
     }
     
     // 添加元数据信息
     rootNode.meta = {
-      totalNodes: nodesCount,
-      processedNodes: nodesCount,
+      totalNodes: totalNodes,
+      processedNodes: processedNodes,
       skippedNodes: skippedNodes,
       maxDepthReached: maxDepthReached,
       maxDepth: maxDepth
@@ -492,8 +494,8 @@ export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 30
     return { 
       nodeData: processedRoot,
       meta: {
-        totalNodes: nodesCount,
-        processedNodes: nodesCount,
+        totalNodes: totalNodes,
+        processedNodes: processedNodes,
         skippedNodes: skippedNodes,
         maxDepthReached: maxDepthReached
       }
