@@ -73,13 +73,21 @@ async function uploadKnowledge(data = sampleKnowledge) {
   console.log('开始上传知识库数据...');
   console.log(`当前OpenAI API密钥: ${process.env.OPENAI_API_KEY ? '已设置' : '未设置'}`);
   
+  // 确保supabaseAdmin不为空
+  if (!supabaseAdmin) {
+    throw new Error('Supabase 管理员客户端未初始化，无法继续操作');
+  }
+  
+  // 创建非空的admin客户端变量
+  const admin = supabaseAdmin;
+  
   for (const subjectData of data) {
     try {
       // 1. 创建或获取科目
       console.log(`处理科目: ${subjectData.subject}`);
       
       let subjectId: number;
-      const { data: existingSubject, error: subjectQueryError } = await supabaseAdmin
+      const { data: existingSubject, error: subjectQueryError } = await admin
         .from('subjects')
         .select('id')
         .eq('name', subjectData.subject)
@@ -91,7 +99,7 @@ async function uploadKnowledge(data = sampleKnowledge) {
         subjectId = existingSubject.id;
         console.log(`科目"${subjectData.subject}"已存在，ID: ${subjectId}`);
       } else {
-        const { data: newSubject, error: subjectInsertError } = await supabaseAdmin
+        const { data: newSubject, error: subjectInsertError } = await admin
           .from('subjects')
           .insert({ name: subjectData.subject, description: `${subjectData.subject}相关知识` })
           .select('id')
@@ -107,7 +115,7 @@ async function uploadKnowledge(data = sampleKnowledge) {
       console.log(`处理章节: ${subjectData.chapter}`);
       
       let chapterId: number;
-      const { data: existingChapter, error: chapterQueryError } = await supabaseAdmin
+      const { data: existingChapter, error: chapterQueryError } = await admin
         .from('chapters')
         .select('id')
         .eq('subject_id', subjectId)
@@ -120,7 +128,7 @@ async function uploadKnowledge(data = sampleKnowledge) {
         chapterId = existingChapter.id;
         console.log(`章节"${subjectData.chapter}"已存在，ID: ${chapterId}`);
       } else {
-        const { data: newChapter, error: chapterInsertError } = await supabaseAdmin
+        const { data: newChapter, error: chapterInsertError } = await admin
           .from('chapters')
           .insert({ subject_id: subjectId, title: subjectData.chapter, order_number: 1 })
           .select('id')
@@ -137,7 +145,7 @@ async function uploadKnowledge(data = sampleKnowledge) {
         console.log(`处理知识点: ${entry.title}`);
         
         // 检查知识点是否已存在
-        const { data: existingEntry, error: entryQueryError } = await supabaseAdmin
+        const { data: existingEntry, error: entryQueryError } = await admin
           .from('knowledge_entries')
           .select('id')
           .eq('chapter_id', chapterId)
@@ -156,7 +164,7 @@ async function uploadKnowledge(data = sampleKnowledge) {
         const embedding = await generateEmbedding(entry.title + " " + entry.content);
         
         // 插入知识点
-        const { error: entryInsertError } = await supabaseAdmin
+        const { error: entryInsertError } = await admin
           .from('knowledge_entries')
           .insert({
             chapter_id: chapterId,
