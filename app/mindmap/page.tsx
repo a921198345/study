@@ -232,7 +232,7 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
   const loadingRef = useRef<HTMLDivElement>(null);
   
   // 用于控制数据源切换
-  const [dataSource, setDataSource] = useState<'active' | 'test' | 'supabase'>('active');
+  const [dataSource, setDataSource] = useState<'active' | 'test' | 'supabase' | 'civil-law' | 'civil-law-simple'>('active');
   
   // 使用useCallback确保函数不会频繁重建
   const refreshMindmap = useCallback(async () => {
@@ -310,7 +310,7 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
   }, [activeId, refreshMindmap]);
   
   // 切换数据源
-  const toggleDataSource = useCallback((source: 'active' | 'test' | 'supabase') => {
+  const toggleDataSource = useCallback((source: 'active' | 'test' | 'supabase' | 'civil-law' | 'civil-law-simple') => {
     setDataSource(source);
     // 切换后自动刷新
     setTimeout(() => refreshMindmap(), 0);
