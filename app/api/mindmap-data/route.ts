@@ -350,52 +350,79 @@ interface MindElixirData {
   };
 }
 
-// 改进的OPML转换函数，更健壮地处理各种格式
-export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 3000, maxDepth = 10): Promise<MindElixirData> {
+// 增强的函数，确保能处理大型OPML文件
+export async function convertOpmlToMindElixir(opmlContent: string, maxNodes = 100000, maxDepth = 30): Promise<MindElixirData> {
+  // 初始化计数器和最大值
+  const meta = {
+    totalNodes: 0,      // 总节点数
+    processedNodes: 0,  // 处理的节点数
+    skippedNodes: 0,    // 由于限制跳过的节点数
+    maxDepthReached: false, // 是否达到最大深度
+  };
+
+  // 使用XML2JS解析OPML内容
   try {
-    // 使用更精确的XML解析配置
-    const parser = new xml2js.Parser({ 
-      explicitArray: false,
-      explicitChildren: false,
-      mergeAttrs: true,
-      attrkey: '$',
-      trim: true,
-      normalize: true
+    console.log(`开始解析OPML内容，最大节点数=${maxNodes}，最大深度=${maxDepth}`);
+    const result = await parseStringPromise(opmlContent, { 
+      explicitArray: false,   // 不将单个子节点转换为数组
+      normalizeTags: true,    // 将标签名称转换为小写
+      trim: true,             // 修剪文本节点的空格
+      attrkey: 'attrs',       // 属性对象的键名
+      charkey: 'text',        // 文本内容的键名
     });
-    const result = await parser.parseStringPromise(opmlContent);
     
-    console.log('OPML解析结果:', JSON.stringify(result).substring(0, 500) + '...');
-    
-    if (!result || !result.opml || !result.opml.body || !result.opml.body.outline) {
-      console.error('OPML结构无效');
-      return { nodeData: { id: 'root', topic: '无效的OPML数据', children: [] }, meta: { totalNodes: 1, processedNodes: 1, skippedNodes: 0, maxDepthReached: false } };
+    if (!result || !result.opml) {
+      throw new Error('无效的OPML格式，找不到opml根节点');
     }
     
-    // 提取标题，优先从OPML头部获取
-    let rootTopic = '思维导图';
-    if (result.opml.head && result.opml.head.title) {
-      rootTopic = result.opml.head.title;
-    }
+    console.log('成功解析OPML结构，开始转换为MindElixir格式');
     
-    // 创建根节点
-    const rootNode: {
-      id: string;
-      topic: string;
-      expanded: boolean;
-      children: any[];
-      meta?: {
-        totalNodes: number;
-        processedNodes: number;
-        skippedNodes: number;
-        maxDepthReached: boolean;
-        maxDepth: number;
-      };
-    } = {
+    // 初始化根节点
+    const rootNode: any = {
       id: 'root',
-      topic: rootTopic,
+      topic: '思维导图',
       expanded: true,
       children: []
     };
+    
+    // 尝试从OPML头部获取标题
+    if (result.opml.head && result.opml.head.title) {
+      rootNode.topic = result.opml.head.title;
+      console.log(`从OPML头部获取标题: ${rootNode.topic}`);
+    }
+    
+    // 如果没有找到标题，尝试从第一个outline的文本获取
+    if (rootNode.topic === '思维导图' && 
+        result.opml.body && 
+        result.opml.body.outline) {
+      
+      // 获取第一个outline
+      const firstOutline = Array.isArray(result.opml.body.outline) 
+        ? result.opml.body.outline[0] 
+        : result.opml.body.outline;
+      
+      // 检查节点文本字段
+      if (firstOutline) {
+        // 处理XMind和MindNode格式
+        if (firstOutline.attrs && (firstOutline.attrs.text || firstOutline.attrs.title)) {
+          rootNode.topic = firstOutline.attrs.text || firstOutline.attrs.title;
+        }
+        // 处理MuBu格式
+        else if (firstOutline.attrs && firstOutline.attrs._mubu_text) {
+          rootNode.topic = decodeURIComponent(firstOutline.attrs._mubu_text).replace(/<[^>]*>/g, '');
+        }
+        // 处理FreeMind格式
+        else if (firstOutline.attrs && firstOutline.attrs.name) {
+          rootNode.topic = firstOutline.attrs.name;
+        }
+        // 处理普通的text内容
+        else if (firstOutline.text) {
+          rootNode.topic = firstOutline.text;
+        }
+        
+        console.log(`从第一个outline获取标题: ${rootNode.topic}`);
+      }
+    }
     
     // 计数已处理的节点和跳过的节点
     let totalNodes = 1; // 根节点算一个

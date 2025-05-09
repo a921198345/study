@@ -317,27 +317,32 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
   }, [refreshMindmap]);
   
   // 加载民法测试数据
-  const loadCivilLawTestData = useCallback(async () => {
+  const loadCivilLawData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    // 显示加载状态提示
+    if (loadingRef.current) {
+      loadingRef.current.textContent = '正在加载民法思维导图数据...';
+    }
+    
     try {
-      setLoadingCivilLaw(true);
-      console.log('加载民法测试数据...');
+      console.log('加载完整民法思维导图数据...');
       
-      // 更新加载状态信息
-      if (loadingRef.current) {
-        loadingRef.current.textContent = '正在加载民法测试数据...';
-      }
+      // 增加maxNodes和maxDepth参数以显示更完整的内容
+      const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=20000&maxDepth=20');
       
-      const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=5000&maxDepth=10');
       if (!response.ok) {
-        throw new Error(`获取民法测试数据失败: ${response.status} ${response.statusText}`);
+        throw new Error(`加载民法数据失败: ${response.status} ${response.statusText}`);
       }
       
-      const testData = await response.json();
+      const data = await response.json();
+      console.log('民法数据加载成功', data);
       
       // 显示加载数据统计（如果有）
-      if (testData.meta) {
-        const { totalNodes, processedNodes, skippedNodes, maxDepthReached } = testData.meta;
-        console.log(`民法测试数据 - 总节点数: ${totalNodes}, 已处理: ${processedNodes}, 已跳过: ${skippedNodes}`);
+      if (data.meta) {
+        const { totalNodes, processedNodes, skippedNodes, maxDepthReached } = data.meta;
+        console.log(`民法数据 - 总节点数: ${totalNodes}, 已处理: ${processedNodes}, 已跳过: ${skippedNodes}`);
         
         if (maxDepthReached) {
           console.warn(`由于深度限制，部分深层节点未显示`);
@@ -349,13 +354,20 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
         }
       }
       
-      setData(testData);
-      setDataSource('test');
+      // 确保数据格式正确
+      const validatedData = validateAndTransform(data);
+      setData(validatedData);
+      setDataSource('civil-law');
       setLoadingCivilLaw(false);
-    } catch (err) {
-      console.error('加载民法测试数据失败:', err);
-      setError(err instanceof Error ? err.message : '未知错误');
+      
+      // 3秒后自动隐藏消息
+      setTimeout(() => setError(null), 3000);
+    } catch (error) {
+      console.error('加载民法数据出错:', error);
+      setError(`加载民法数据出错: ${error instanceof Error ? error.message : String(error)}`);
       setLoadingCivilLaw(false);
+    } finally {
+      setLoading(false);
     }
   }, []);
   
@@ -428,7 +440,7 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
         </div>
         
         <button
-          onClick={loadCivilLawTestData}
+          onClick={loadCivilLawData}
           className={`px-3 py-1 rounded text-sm ${
             loadingCivilLaw 
               ? 'bg-gray-400 text-white cursor-not-allowed' 
