@@ -58,14 +58,26 @@ const CustomNode = ({ data, id, selected }: NodeProps) => {
   // 处理展开/折叠点击
   const handleExpandClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
+    event.preventDefault(); // 防止事件冒泡
     setExpanded(!expanded);
     
     // 通过自定义事件将展开/折叠状态传递给父组件
     const customEvent = new CustomEvent('node:toggle', { 
-      detail: { id, expanded: !expanded }
+      detail: { id, expanded: !expanded },
+      bubbles: true,  // 允许事件冒泡
+      cancelable: true // 允许取消事件
     });
+    
+    // 直接分发到window对象
     window.dispatchEvent(customEvent);
+    
+    console.log(`节点 ${id} 展开状态变更为: ${!expanded}`);
   };
+  
+  // 确保expanded值与父组件同步
+  useEffect(() => {
+    setExpanded(!data.isCollapsed);
+  }, [data.isCollapsed]);
   
   return (
     <div
@@ -107,8 +119,8 @@ const CustomNode = ({ data, id, selected }: NodeProps) => {
             right: '-25px',
             top: '50%',
             transform: 'translateY(-50%)',
-            width: '20px',
-            height: '20px',
+            width: '24px', // 增大点击区域
+            height: '24px', // 增大点击区域
             borderRadius: '50%',
             background: '#ddd',
             display: 'flex',
@@ -117,7 +129,9 @@ const CustomNode = ({ data, id, selected }: NodeProps) => {
             cursor: 'pointer',
             fontSize: '16px',
             fontWeight: 'bold',
-            zIndex: 10
+            zIndex: 10,
+            border: '1px solid #aaa', // 增加边框使按钮更明显
+            boxShadow: '0 1px 2px rgba(0,0,0,0.2)' // 添加阴影提高可见性
           }}
         >
           {expanded ? '-' : '+'}
@@ -321,7 +335,7 @@ const convertToReactFlow = (
   themeColors: ThemeColors, 
   direction: 'horizontal' | 'vertical' = 'horizontal',
   visibleNodes: Set<string> = new Set(), // 当前可见节点集合
-  maxVisibleDepth: number = 5, // 默认最大显示深度
+  maxVisibleDepth: number = 8, // 默认最大显示深度 - 增加为8层
   collapsedNodes: Set<string> = new Set() // 已折叠的节点集合
 ): { nodes: Node[]; edges: Edge[] } => {
   console.log('ReactFlowMap: 开始数据转换...');
@@ -541,8 +555,8 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   // 追踪已折叠的节点集合
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   
-  // 最大加载深度，初始小一些，用户可以展开更多
-  const [maxVisibleDepth, setMaxVisibleDepth] = useState(3);
+  // 最大加载深度，默认值提高为6
+  const [maxVisibleDepth, setMaxVisibleDepth] = useState(6);
   
   // 引用React Flow包装器元素
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -563,29 +577,52 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
     custom: CustomNode
   }), []);
   
-  // 监听节点折叠/展开事件
+  // 监听节点折叠/展开事件 - 改进事件处理
   useEffect(() => {
     const handleNodeToggle = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const { id, expanded } = customEvent.detail;
-      
-      setCollapsedNodes(prev => {
-        const newSet = new Set(prev);
-        if (expanded) {
-          newSet.delete(id);
+      try {
+        const customEvent = event as CustomEvent;
+        if (customEvent.detail && typeof customEvent.detail === 'object') {
+          const { id, expanded } = customEvent.detail;
+          console.log(`收到节点切换事件: 节点=${id}, 展开=${expanded}`);
+          
+          if (typeof id === 'string') {
+            setCollapsedNodes(prev => {
+              const newSet = new Set(prev);
+              if (expanded) {
+                console.log(`从折叠集合删除节点: ${id}`);
+                newSet.delete(id);
+              } else {
+                console.log(`添加节点到折叠集合: ${id}`);
+                newSet.add(id);
+              }
+              return newSet;
+            });
+            
+            // 重新加载数据
+            setTimeout(() => {
+              console.log('触发布局刷新');
+              refreshLayout();
+            }, 10);
+          } else {
+            console.warn('节点ID无效:', id);
+          }
         } else {
-          newSet.add(id);
+          console.warn('无效的节点切换事件数据:', customEvent);
         }
-        return newSet;
-      });
-      
-      // 重新加载数据
-      setTimeout(() => refreshLayout(), 0);
+      } catch (error) {
+        console.error('处理节点切换事件出错:', error);
+      }
     };
     
+    console.log('添加node:toggle事件监听器');
     window.addEventListener('node:toggle', handleNodeToggle);
-    return () => window.removeEventListener('node:toggle', handleNodeToggle);
-  }, [data, themeColors]);
+    
+    return () => {
+      console.log('移除node:toggle事件监听器');
+      window.removeEventListener('node:toggle', handleNodeToggle);
+    };
+  }, []);
   
   // 初始化节点和边缘
   useEffect(() => {
@@ -637,8 +674,18 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       
       console.log(`ReactFlowMap: 思维导图统计信息 - 总节点: ${newStats.totalNodes}, 最大深度: ${newStats.maxDepth}`);
       
-      // 设置合适的初始深度
-      const initialDepth = dataStats.count > maxInitialNodes ? 2 : 3;
+      // 设置合适的初始深度 - 增加初始深度显示
+      // 为大型图调整深度处理逻辑，最小显示3层，最大基于节点数自适应
+      let initialDepth = 6; // 默认显示6层
+      if (dataStats.count > 5000) {
+        initialDepth = 4; // 超大型图显示4层
+      } else if (dataStats.count > 2000) {
+        initialDepth = 5; // 大型图显示5层
+      } else if (dataStats.count < 100) {
+        initialDepth = Math.min(8, dataStats.maxDepth); // 小型图可以显示更多层
+      }
+      
+      console.log(`设置初始显示深度为: ${initialDepth}`);
       setMaxVisibleDepth(initialDepth);
       
       // 将数据转换为ReactFlow格式
@@ -674,11 +721,12 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
     }
   }, [data, isClient, themeColors, direction, maxInitialNodes, onMapStats]);
   
-  // 刷新布局
+  // 刷新布局 - 添加明确的依赖数组，防止引用旧状态
   const refreshLayout = useCallback(() => {
     try {
       setLoading(true);
       console.log('ReactFlowMap: 刷新布局...');
+      console.log(`当前显示深度: ${maxVisibleDepth}, 折叠节点数: ${collapsedNodes.size}`);
       
       const visibleNodesSet = new Set<string>();
       const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(
