@@ -533,7 +533,7 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   width = '100%',
   className = '',
   batchSize = 500, // 每批加载的节点数
-  maxInitialNodes = 1000, // 初始加载的最大节点数
+  maxInitialNodes = 3000, // 增加初始加载的最大节点数
   onMapStats
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -555,8 +555,8 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
   // 追踪已折叠的节点集合
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   
-  // 最大加载深度，默认值提高为6
-  const [maxVisibleDepth, setMaxVisibleDepth] = useState(6);
+  // 最大加载深度，默认值提高为8
+  const [maxVisibleDepth, setMaxVisibleDepth] = useState(8);
   
   // 引用React Flow包装器元素
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -676,16 +676,18 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       
       // 设置合适的初始深度 - 增加初始深度显示
       // 为大型图调整深度处理逻辑，最小显示3层，最大基于节点数自适应
-      let initialDepth = 6; // 默认显示6层
-      if (dataStats.count > 5000) {
-        initialDepth = 4; // 超大型图显示4层
+      let initialDepth = 8;
+      if (dataStats.count > 10000) {
+        initialDepth = 5; // 超大型图显示5层
+      } else if (dataStats.count > 5000) {
+        initialDepth = 6; // 大型图显示6层
       } else if (dataStats.count > 2000) {
-        initialDepth = 5; // 大型图显示5层
+        initialDepth = 7; // 中型图显示7层
       } else if (dataStats.count < 100) {
-        initialDepth = Math.min(8, dataStats.maxDepth); // 小型图可以显示更多层
+        initialDepth = Math.min(10, dataStats.maxDepth); // 小型图可以显示更多层
       }
       
-      console.log(`设置初始显示深度为: ${initialDepth}`);
+      console.log(`设置初始显示深度为: ${initialDepth}, 最大深度: ${dataStats.maxDepth}`);
       setMaxVisibleDepth(initialDepth);
       
       // 将数据转换为ReactFlow格式

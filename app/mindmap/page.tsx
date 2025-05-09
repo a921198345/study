@@ -318,6 +318,7 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
   
   // 加载民法测试数据
   const loadCivilLawData = useCallback(async () => {
+    setLoadingCivilLaw(true);
     setLoading(true);
     setError(null);
     
@@ -329,15 +330,15 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
     try {
       console.log('加载完整民法思维导图数据...');
       
-      // 增加maxNodes和maxDepth参数以显示更完整的内容
-      const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=20000&maxDepth=20');
+      // 增加maxNodes和maxDepth参数显著提高以显示更完整的内容
+      const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=100000&maxDepth=30');
       
       if (!response.ok) {
         throw new Error(`加载民法数据失败: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('民法数据加载成功', data);
+      console.log('民法数据加载成功，数据大小:', JSON.stringify(data).length);
       
       // 显示加载数据统计（如果有）
       if (data.meta) {
@@ -356,18 +357,18 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
       
       // 确保数据格式正确
       const validatedData = validateAndTransform(data);
+      console.log('数据验证完成，准备设置状态...');
       setData(validatedData);
       setDataSource('civil-law');
-      setLoadingCivilLaw(false);
       
       // 3秒后自动隐藏消息
       setTimeout(() => setError(null), 3000);
     } catch (error) {
       console.error('加载民法数据出错:', error);
       setError(`加载民法数据出错: ${error instanceof Error ? error.message : String(error)}`);
-      setLoadingCivilLaw(false);
     } finally {
       setLoading(false);
+      setLoadingCivilLaw(false);
     }
   }, []);
   
@@ -499,8 +500,8 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
               theme={theme}
               height="100%" 
               width="100%"
-              maxInitialNodes={2000}
-              batchSize={500}
+              maxInitialNodes={5000}
+              batchSize={1000}
               onMapStats={handleMapStats}
             />
           ) : loading ? (
