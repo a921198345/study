@@ -336,7 +336,8 @@ const convertToReactFlow = (
   direction: 'horizontal' | 'vertical' = 'horizontal',
   visibleNodes: Set<string> = new Set(), // 当前可见节点集合
   maxVisibleDepth: number = 8, // 默认最大显示深度 - 增加为8层
-  collapsedNodes: Set<string> = new Set() // 已折叠的节点集合
+  collapsedNodes: Set<string> = new Set(), // 已折叠的节点集合
+  safeMode: boolean = false // 安全模式，限制处理节点数
 ): { nodes: Node[]; edges: Edge[] } => {
   console.log('ReactFlowMap: 开始数据转换...');
   
@@ -369,12 +370,22 @@ const convertToReactFlow = (
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   
+  // 安全模式下的节点计数限制
+  const nodeLimit = safeMode ? 1000 : 10000;
+  let processedNodeCount = 0;
+  
   // 递归处理节点
   const processNode = (node: any, parentId: string | null = null, level: number = 0) => {
     if (!node) {
       console.warn('ReactFlowMap: 处理空节点');
       return null;
     }
+    
+    // 安全模式下的节点计数检查
+    if (safeMode && processedNodeCount >= nodeLimit) {
+      return null;
+    }
+    processedNodeCount++;
     
     // 确保节点有唯一ID
     const id = String(node.id || `node-${Math.random().toString(36).substr(2, 9)}`);
@@ -677,17 +688,21 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       // 设置合适的初始深度 - 增加初始深度显示
       // 为大型图调整深度处理逻辑，最小显示3层，最大基于节点数自适应
       let initialDepth = 8;
+      let useSafeMode = false;
+      
       if (dataStats.count > 10000) {
-        initialDepth = 5; // 超大型图显示5层
+        initialDepth = 4; // 超大型图显示4层
+        useSafeMode = true;
+        console.warn('ReactFlowMap: 检测到超大型思维导图，启用安全模式，限制节点处理');
       } else if (dataStats.count > 5000) {
-        initialDepth = 6; // 大型图显示6层
+        initialDepth = 5; // 大型图显示5层
       } else if (dataStats.count > 2000) {
-        initialDepth = 7; // 中型图显示7层
+        initialDepth = 6; // 中型图显示6层
       } else if (dataStats.count < 100) {
         initialDepth = Math.min(10, dataStats.maxDepth); // 小型图可以显示更多层
       }
       
-      console.log(`设置初始显示深度为: ${initialDepth}, 最大深度: ${dataStats.maxDepth}`);
+      console.log(`设置初始显示深度为: ${initialDepth}, 最大深度: ${dataStats.maxDepth}, 安全模式: ${useSafeMode}`);
       setMaxVisibleDepth(initialDepth);
       
       // 将数据转换为ReactFlow格式
@@ -698,7 +713,8 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
         direction, 
         visibleNodesSet, 
         initialDepth, 
-        collapsedNodes
+        collapsedNodes,
+        useSafeMode // 传递安全模式标志
       );
       
       // 更新可见节点集合
@@ -710,6 +726,11 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       setMapStats(newStats);
       if (onMapStats) onMapStats(newStats);
       
+      // 检查节点数量，过少可能表示渲染问题
+      if (flowNodes.length < 10 && dataStats.count > 100) {
+        console.warn(`ReactFlowMap: 可能的渲染问题 - 仅生成了 ${flowNodes.length} 个节点，但数据包含 ${dataStats.count} 个节点`);
+      }
+      
       // 设置节点和边缘
       setNodes(flowNodes);
       setEdges(flowEdges);
@@ -718,7 +739,34 @@ const ReactFlowMap: React.FC<ReactFlowMapProps> = ({
       setLoading(false);
     } catch (err) {
       console.error('ReactFlowMap: 初始化思维导图出错:', err);
-      setError('初始化思维导图时出错，请检查数据格式');
+      
+      // 出错时尝试使用安全模式加载
+      try {
+        console.warn('ReactFlowMap: 尝试使用安全模式重新加载');
+        
+        // 降级处理 - 限制深度和节点数
+        const maxSafeDepth = 3;
+        const visibleNodesSet = new Set<string>();
+        const { nodes: flowNodes, edges: flowEdges } = convertToReactFlow(
+          data, 
+          themeColors, 
+          direction, 
+          visibleNodesSet, 
+          maxSafeDepth, 
+          new Set<string>(),
+          true // 强制启用安全模式
+        );
+        
+        // 更新统计信息
+        setMaxVisibleDepth(maxSafeDepth);
+        setNodes(flowNodes);
+        setEdges(flowEdges);
+        
+        setError('思维导图数据过大，已切换到安全模式显示部分内容');
+      } catch (fallbackErr) {
+        setError('初始化思维导图时出错，请尝试简化版或减少数据量');
+      }
+      
       setLoading(false);
     }
   }, [data, isClient, themeColors, direction, maxInitialNodes, onMapStats]);

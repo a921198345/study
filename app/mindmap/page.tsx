@@ -321,6 +321,7 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
     setLoadingCivilLaw(true);
     setLoading(true);
     setError(null);
+    setData(null); // 清空现有数据，确保重新渲染
     
     // 显示加载状态提示
     if (loadingRef.current) {
@@ -330,42 +331,115 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
     try {
       console.log('加载完整民法思维导图数据...');
       
-      // 增加maxNodes和maxDepth参数显著提高以显示更完整的内容
-      const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=100000&maxDepth=30');
+      // 先显示一个简化版的预览数据，限制层级和节点数
+      const previewResponse = await fetch('/api/mindmap-test?type=civil-law&maxNodes=1000&maxDepth=5');
+      if (!previewResponse.ok) {
+        throw new Error(`加载民法预览数据失败: ${previewResponse.status}`);
+      }
+      
+      const previewData = await previewResponse.json();
+      console.log('民法预览数据加载成功，开始预渲染...');
+      
+      // 先设置预览数据让用户看到内容
+      const validatedPreviewData = validateAndTransform(previewData);
+      setData(validatedPreviewData);
+      
+      if (loadingRef.current) {
+        loadingRef.current.textContent = '已加载预览版本，正在加载完整数据...';
+      }
+      
+      // 然后异步加载完整数据
+      setTimeout(async () => {
+        try {
+          // 增加maxNodes和maxDepth参数显著提高以显示更完整的内容
+          const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=100000&maxDepth=30');
+          
+          if (!response.ok) {
+            throw new Error(`加载完整民法数据失败: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('民法完整数据加载成功，数据大小:', JSON.stringify(data).length);
+          
+          // 显示加载数据统计（如果有）
+          if (data.meta) {
+            const { totalNodes, processedNodes, skippedNodes, maxDepthReached } = data.meta;
+            console.log(`民法数据 - 总节点数: ${totalNodes}, 已处理: ${processedNodes}, 已跳过: ${skippedNodes}`);
+            
+            if (maxDepthReached) {
+              console.warn(`由于深度限制，部分深层节点未显示`);
+            }
+            
+            // 更新加载状态信息
+            if (loadingRef.current) {
+              loadingRef.current.textContent = `已加载 ${processedNodes} 个节点，跳过 ${skippedNodes} 个节点`;
+            }
+          }
+          
+          // 确保数据格式正确
+          const validatedData = validateAndTransform(data);
+          console.log('数据验证完成，准备设置状态...');
+          setData(validatedData);
+          setDataSource('civil-law');
+          
+          // 3秒后自动隐藏消息
+          setTimeout(() => setError(null), 3000);
+        } catch (fullLoadError) {
+          console.error('加载完整民法数据出错:', fullLoadError);
+          setError(`加载完整数据出错，但预览可用: ${fullLoadError instanceof Error ? fullLoadError.message : String(fullLoadError)}`);
+        } finally {
+          setLoadingCivilLaw(false);
+        }
+      }, 1000); // 给预览数据一秒钟时间渲染
+      
+    } catch (error) {
+      console.error('加载民法数据彻底失败:', error);
+      setError(`加载民法数据出错: ${error instanceof Error ? error.message : String(error)}`);
+      setLoadingCivilLaw(false);
+      setLoading(false);
+    }
+  }, []);
+  
+  // 加载简化版民法数据
+  const loadSimpleCivilLawData = useCallback(async () => {
+    setLoadingCivilLaw(true);
+    setLoading(true);
+    setError(null);
+    setData(null);
+    
+    if (loadingRef.current) {
+      loadingRef.current.textContent = '正在加载简化版民法思维导图...';
+    }
+    
+    try {
+      // 只加载前4层，最多2000个节点
+      const response = await fetch('/api/mindmap-test?type=civil-law&maxNodes=2000&maxDepth=4');
       
       if (!response.ok) {
-        throw new Error(`加载民法数据失败: ${response.status} ${response.statusText}`);
+        throw new Error(`加载民法数据失败: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('民法数据加载成功，数据大小:', JSON.stringify(data).length);
+      console.log('简化版民法数据加载成功');
       
-      // 显示加载数据统计（如果有）
       if (data.meta) {
-        const { totalNodes, processedNodes, skippedNodes, maxDepthReached } = data.meta;
-        console.log(`民法数据 - 总节点数: ${totalNodes}, 已处理: ${processedNodes}, 已跳过: ${skippedNodes}`);
-        
-        if (maxDepthReached) {
-          console.warn(`由于深度限制，部分深层节点未显示`);
-        }
-        
-        // 更新加载状态信息
+        const { totalNodes, processedNodes } = data.meta;
         if (loadingRef.current) {
-          loadingRef.current.textContent = `已加载 ${processedNodes} 个节点，跳过 ${skippedNodes} 个节点`;
+          loadingRef.current.textContent = `已加载 ${processedNodes} 个节点（简化版）`;
         }
       }
       
-      // 确保数据格式正确
       const validatedData = validateAndTransform(data);
-      console.log('数据验证完成，准备设置状态...');
       setData(validatedData);
-      setDataSource('civil-law');
+      setDataSource('civil-law-simple');
       
-      // 3秒后自动隐藏消息
-      setTimeout(() => setError(null), 3000);
+      setTimeout(() => {
+        setError('已加载简化版民法数据，只显示前4层结构。需要查看更多层级请使用"加载更多层级"按钮。');
+      }, 1000);
+      
     } catch (error) {
-      console.error('加载民法数据出错:', error);
-      setError(`加载民法数据出错: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('加载简化版民法数据出错:', error);
+      setError(`加载失败: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setLoading(false);
       setLoadingCivilLaw(false);
@@ -450,6 +524,18 @@ function MindmapContent({ activeId, showSuccessMessage = false }: MindmapContent
           disabled={loadingCivilLaw}
         >
           {loadingCivilLaw ? '加载中...' : '加载民法数据'}
+        </button>
+        
+        <button
+          onClick={loadSimpleCivilLawData}
+          className={`px-3 py-1 rounded text-sm ${
+            loadingCivilLaw 
+              ? 'bg-gray-400 text-white cursor-not-allowed' 
+              : 'bg-amber-500 text-white hover:bg-amber-600'
+          }`}
+          disabled={loadingCivilLaw}
+        >
+          简化版民法
         </button>
         
         <button
